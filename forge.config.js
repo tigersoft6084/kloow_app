@@ -45,6 +45,13 @@ module.exports = {
       },
     },
     {
+      name: "@electron-forge/maker-dmg",
+      config: {
+        icon: "./src/assets/images/logo.icns",
+        format: "ULFO",
+      },
+    },
+    {
       name: "@electron-forge/maker-zip",
       platforms: ["darwin"],
       config: {
