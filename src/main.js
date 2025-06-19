@@ -3,7 +3,7 @@ const { app, BrowserWindow, Menu, autoUpdater, ipcMain } = require("electron");
 const {
   ersPlatform,
 } = require("@electron-forge/publisher-electron-release-server");
-const isDev = require("electron-is-dev");
+// const isDev = require("electron-is-dev");
 const log = require("electron-log");
 
 autoUpdater.logger = log;
@@ -33,7 +33,7 @@ const createWindow = () => {
   });
 
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  if (isDev) mainWindow.webContents.openDevTools();
+  // if (isDev) mainWindow.webContents.openDevTools();
 };
 
 app.whenReady().then(() => {

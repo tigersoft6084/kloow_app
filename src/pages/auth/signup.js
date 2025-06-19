@@ -90,7 +90,7 @@ const Signup = () => {
           values,
         }) => (
           <form noValidate onSubmit={handleSubmit}>
-            <Grid container spacing={2}>
+            <Grid container spacing={3}>
               <Grid size={{ xs: 12 }}>
                 <Typography variant="h4" textAlign="center">
                   <b>Create your account</b>
