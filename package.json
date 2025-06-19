@@ -1,7 +1,7 @@
 {
   "name": "proxylogin",
   "productName": "ProxyLogin",
-  "version": "1.0.2",
+  "version": "1.0.0",
   "description": "ProxyLogin Description",
   "author": "ProxyLogin Team",
   "main": ".webpack/main",
