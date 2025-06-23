@@ -1,5 +1,13 @@
 require("dotenv").config();
-const { app, BrowserWindow, Menu, autoUpdater, ipcMain } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  autoUpdater,
+  ipcMain,
+  Tray,
+  nativeImage,
+} = require("electron");
 const {
   ersPlatform,
 } = require("@electron-forge/publisher-electron-release-server");
@@ -9,6 +17,7 @@ const log = require("electron-log");
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
 let mainWindow = null;
+let tray = null;
 
 // Handle Squirrel.Windows startup events
 if (require("electron-squirrel-startup")) {
@@ -32,12 +41,54 @@ const createWindow = () => {
     },
   });
 
+  // Prevent the window from closing immediately
+  mainWindow.on("close", (event) => {
+    if (!app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
   if (isDev) mainWindow.webContents.openDevTools();
 };
 
+const createTray = () => {
+  // Use the same icon as the app
+  tray = new Tray("./src/assets/images/logo.png");
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Show",
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+        }
+      },
+    },
+    {
+      label: "Quit",
+      click: () => {
+        app.isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setToolTip(app.getName());
+  tray.setContextMenu(contextMenu);
+
+  // Double-click tray icon to show the window
+  tray.on("double-click", () => {
+    if (mainWindow) {
+      mainWindow.show();
+    }
+  });
+};
+
 app.whenReady().then(() => {
   createWindow();
+  createTray();
   // Configure autoUpdater for local testing
   const feedUrl = `${
     process.env.RELEASE_SERVER_URL
@@ -78,6 +129,16 @@ app.on("activate", () => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
+  } else if (mainWindow) {
+    mainWindow.show();
+  }
+});
+
+app.on("before-quit", () => {
+  // Ensure tray is destroyed before quitting
+  if (tray) {
+    tray.destroy();
+    tray = null;
   }
 });
 
