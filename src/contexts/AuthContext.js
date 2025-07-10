@@ -5,7 +5,6 @@ import { LOGIN, LOGOUT } from "../reducers/actions";
 import authReducer, { initialState } from "../reducers/auth";
 
 import { sleep } from "../utils/common";
-import axios from "axios";
 
 const AuthContext = createContext(null);
 
@@ -31,44 +30,63 @@ export const AuthProvider = ({ children }) => {
       const regex = /id="woocommerce-login-nonce"[^>]*value="([^"]+)"/;
       const match = htmlContent.match(regex);
       if (match && match[1]) {
-        console.log("Extracted nonce value:", match[1]); // Outputs: 4d5a45443b
         return match[1];
       } else {
-        console.log("Nonce value not found");
-        return "4d5a45443b";
+        return null;
       }
     } catch (error) {
-      console.error("Error fetching data:", error);
-      return "4d5a45443b";
+      return null;
+    }
+  };
+  // Function to extract _wpnonce from HTML using regex
+  const extractWpNonce = (html) => {
+    try {
+      // Regex to match the logout link and capture _wpnonce
+      const regex = /wp\.apiFetch\.createNonceMiddleware\s*\(\s*"([^"]+)"\s*\)/;
+      const match = html.match(regex);
+
+      if (match && match[1]) {
+        return match[1]; // Captured _wpnonce value
+      }
+      return null;
+    } catch (error) {
+      return null;
     }
   };
 
   const login = async (values) => {
     try {
-      const formData = new FormData();
-      for (const key in values) {
-        formData.append(key, values[key]);
-      }
+      const urlEncodedData = Object.entries(values)
+        .map(
+          ([key, value]) =>
+            `${encodeURIComponent(key)}=${encodeURIComponent(value.toString())}`
+        )
+        .join("&");
 
-      const response = await fetch("https://maserver.click/my-account-2/", {
+      let response = await fetch("https://maserver.click/my-account-2", {
         method: "POST",
-        body: formData,
+        body: urlEncodedData,
         headers: {
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7", // Prefer non-HTML response
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-        redirect: "manual", // Prevent automatic redirects
+        credentials: "include",
       });
 
       const responseBody = await response.text();
 
-      if (response.ok) {
-        // Failed login: WordPress returns 200 with error message (likely HTML)
-        return { status: false, message: extractErrorMessage(responseBody) };
-      } else {
-        // Success to login. No need to redirect.
+      if (response.redirected) {
+        const wpnonce = extractWpNonce(responseBody);
+        if (wpnonce) {
+          await window.electronAPI.setCookie({
+            name: "wpnonce",
+            value: wpnonce,
+            url: "https://maserver.click",
+          });
+        }
         dispatch({ type: LOGIN, payload: { user: values.username } });
         return { status: true, message: "" };
+      } else {
+        return { status: false, message: extractErrorMessage(responseBody) };
       }
     } catch (error) {
       return { status: false, message: `${error.name}: ${error.message}` };
@@ -76,19 +94,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signup = async (values) => {
-    console.log(values);
     await sleep(1000);
     return { status: true, data: "" };
   };
 
   const forgotPassword = async (values) => {
-    console.log(values);
     await sleep(1000);
     return { status: true, data: "" };
   };
 
   const resetPassword = async (values) => {
-    console.log(values);
     await sleep(1000);
     return { status: true, data: "" };
   };

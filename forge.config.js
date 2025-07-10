@@ -23,6 +23,10 @@ module.exports = {
       ProductName: packageJson.productName,
       InternalName: sanitizedAppName,
     },
+    extraResource: [
+      "./src/assets/images/logo.ico",
+      "./src/assets/images/logo.png",
+    ],
   },
   rebuildConfig: {},
   makers: [

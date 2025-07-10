@@ -90,5 +90,6 @@ typings/
 
 # Electron-Forge
 out/
-
+server/download
 .env
+extracted

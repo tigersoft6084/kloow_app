@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
 // material-ui
 import {
   Button,
@@ -21,7 +21,7 @@ import {
 } from "@mui/icons-material";
 import Loader from "../../components/Loader";
 import { LoadingOutlined } from "@ant-design/icons";
-import GoogleIcon from "../../assets/images/google.svg";
+// import GoogleIcon from "../../assets/images/google.svg";
 
 // third party
 import * as Yup from "yup";
@@ -31,7 +31,7 @@ import useAuth from "../../hooks/useAuth";
 import useSnackbar from "../../hooks/useSnackbar";
 
 const Login = () => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { login, getLoginNonce } = useAuth();
   const { successMessage, errorMessage } = useSnackbar();
 
@@ -97,7 +97,7 @@ const Login = () => {
                     <b>Login</b>
                   </Typography>
                 </Grid>
-                <Grid size={{ xs: 12 }}>
+                {/* <Grid size={{ xs: 12 }}>
                   <Button
                     fullWidth
                     disabled={isSubmitting}
@@ -124,7 +124,7 @@ const Login = () => {
                   <Divider>
                     <Typography variant="body2">OR</Typography>
                   </Divider>
-                </Grid>
+                </Grid> */}
                 <Grid size={{ xs: 12 }}>
                   <Stack spacing={1}>
                     <InputLabel htmlFor="username-login">
@@ -226,7 +226,7 @@ const Login = () => {
                     Login
                   </Button>
                 </Grid>
-                <Grid size={{ xs: 12 }}>
+                {/* <Grid size={{ xs: 12 }}>
                   <Stack
                     direction="row"
                     alignItems="center"
@@ -255,7 +255,7 @@ const Login = () => {
                       Forgot password?
                     </Typography>
                   </Stack>
-                </Grid>
+                </Grid> */}
               </Grid>
             </form>
           )}

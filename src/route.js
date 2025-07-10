@@ -3,6 +3,7 @@ import { Outlet, useRoutes } from "react-router-dom";
 
 import GuestGuard from "./utils/route/GuestGuard";
 import AuthGuard from "./utils/route/AuthGuard";
+import { MainProvider } from "./contexts/MainContext";
 
 import Login from "./pages/auth/login";
 import Signup from "./pages/auth/signup";
@@ -47,7 +48,9 @@ const MainRoutes = {
   path: "/main",
   element: (
     <GuestGuard>
-      <Outlet />
+      <MainProvider>
+        <Outlet />
+      </MainProvider>
     </GuestGuard>
   ),
   children: [

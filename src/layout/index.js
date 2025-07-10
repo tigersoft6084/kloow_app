@@ -10,7 +10,7 @@ const Layout = ({ children }) => {
 
   useEffect(() => {
     // Check for updates on mount
-    window.electronAPI.checkForUpdates();
+    // window.electronAPI.checkForUpdates();
 
     window.electronAPI.onUpdateStatus((_, response) => {
       switch (response.status) {
