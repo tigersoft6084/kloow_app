@@ -16,8 +16,7 @@ const { download } = require("electron-dl");
 const AdmZip = require("adm-zip");
 const fs = require("fs").promises;
 const path = require("path");
-const { exec, spawn } = require("child_process");
-
+const { exec, spawn, execSync } = require("child_process");
 const isDev = require("electron-is-dev");
 const log = require("electron-log");
 
@@ -30,10 +29,7 @@ const browserProcesses = new Map();
 const downloadUrl = "http://46.62.137.213:5000/download";
 const appPath = path.join(app.getPath("userData"), "Browser", app.getVersion());
 const zipPath = path.join(appPath, "browser.zip");
-// const executableName = "GoogleChromePortable.exe";
-// const executablePath = path.join(extractPath, executableName);
 
-// Handle Squirrel.Windows startup events
 if (require("electron-squirrel-startup")) {
   app.quit();
 }
@@ -179,12 +175,14 @@ function parseSetCookieHeader(header, url) {
 app.whenReady().then(() => {
   createWindow();
   createTray();
+
   const feedUrl = `${
     process.env.RELEASE_SERVER_URL
   }/update/flavor/${app.getName()}/${ersPlatform(
     process.platform,
     process.arch
   )}/${app.getVersion()}`;
+
   autoUpdater.setFeedURL({ url: feedUrl });
   autoUpdater.on("update-downloaded", (event, releaseNotes, releaseName) => {
     BrowserWindow.getAllWindows().forEach((win) =>
@@ -272,6 +270,45 @@ app.on("before-quit", () => {
 ipcMain.handle("get-app-version", () => app.getVersion());
 ipcMain.handle("get-app-name", () => app.getName());
 
+ipcMain.handle("check-cert", () => {
+  try {
+    // Run certutil command
+    const output = execSync(
+      "certutil -store Root 3aa5c9285c6eb3237abfcf943d9bf504019b68fb",
+      {
+        encoding: "utf8",
+        stdio: "pipe",
+      }
+    );
+
+    // Check if serial number is in output
+    if (output.includes("3aa5c9285c6eb3237abfcf943d9bf504019b68fb")) {
+      return true;
+    } else {
+      return false;
+    }
+  } catch (error) {
+    return false;
+  }
+});
+
+ipcMain.handle("install-cert", async () => {
+  // const certPath = path.join(__dirname, "..", "..", "..", "cert.crt"); // Adjust if needed
+  // const certutilCommand = `certutil -addstore -f "Root" "${certPath}"`;
+  const certutilCommand = path.join(__dirname, "..", "..", "..", "run.bat"); // Adjust if needed
+  try {
+    await fs.access(certutilCommand);
+    exec(certutilCommand, { stdio: "inherit" });
+    const output = execSync(certutilCommand, {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+    return { status: true, message: output };
+  } catch (error) {
+    return { status: false, message: error.message };
+  }
+});
+
 ipcMain.on("check-for-updates", () => {
   if (process.argv.includes("--squirrel-firstrun")) {
     log.info("First run after install, skipping update check.");
@@ -348,7 +385,7 @@ async function runExecutable(executablePath, id, url, server) {
       args.push(`--proxy-server="http://${server}:3000"`);
     }
     if (url) {
-      args.push(`"${url}"`); // Add the URL as a command-line argument
+      args.push(`"${url}"`);
     }
     const proc = spawn(executablePath, args, {
       windowsHide: true,
@@ -470,15 +507,6 @@ ipcMain.handle("download-browser", async () => {
       filename: "browser.zip",
     });
     log.info("Success to download zip file.");
-    // log.info("Unzipping file...");
-    // const zip = new AdmZip(zipPath);
-    // zip.extractAllTo(extractPath, true);
-    // try {
-    //   await fs.unlink(zipPath);
-    //   log.info("Deleted zip file:", zipPath);
-    // } catch (error) {
-    //   log.error("Error deleting zip file:", error);
-    // }
     return { status: true, message: "" };
   } catch (e) {
     log.error("Error downloading browser:", e);

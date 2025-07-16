@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 // import { useNavigate } from "react-router-dom";
 // material-ui
 import {
+  Box,
   Button,
   FormHelperText,
   Grid,
@@ -11,7 +12,8 @@ import {
   OutlinedInput,
   Stack,
   Typography,
-  Divider,
+  Modal,
+  // Divider,
 } from "@mui/material";
 // assets
 import {
@@ -40,16 +42,33 @@ const Login = () => {
 
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState("");
+
+  const [openCert, setOpenCert] = useState(false);
+
   useEffect(() => {
     getLoginNonce().then((result) => {
       setNonce(result);
       setLoading(false);
+      window.electronAPI.checkCert().then((result) => {
+        if (!result) setOpenCert(true);
+      });
     });
   }, []);
 
   useEffect(() => {
     window.electronAPI.setTitle("Login");
   }, []);
+
+  const handleInstallCert = () => {
+    window.electronAPI.installCert().then((result) => {
+      setOpenCert(false);
+      if (result.status) {
+        successMessage("Success to install certificate.");
+      } else {
+        errorMessage(result.message);
+      }
+    });
+  };
 
   return (
     <>
@@ -261,6 +280,40 @@ const Login = () => {
           )}
         </Formik>
       </Stack>
+      <Modal
+        open={openCert}
+        aria-labelledby="parent-modal-title"
+        aria-describedby="parent-modal-description"
+      >
+        <Box className="modal" sx={{ width: 400 }}>
+          <Stack spacing={3}>
+            <Box>
+              <Stack spacing={1} alignItems={"center"}>
+                <Typography variant="h6" color="error">
+                  Certificate Required
+                </Typography>
+                <Typography variant="body1">
+                  You must install the certificate to use the proxy service.
+                </Typography>
+              </Stack>
+            </Box>
+            <Stack
+              spacing={3}
+              direction="row"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Button
+                variant="contained"
+                disableElevation
+                onClick={handleInstallCert}
+              >
+                Install
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
+      </Modal>
     </>
   );
 };

@@ -19,14 +19,9 @@ module.exports = {
     appBundleId: `com.${sanitizedAppName}`,
     win32metadata: {
       CompanyName: packageJson.author,
-      FileDescription: packageJson.description,
-      ProductName: packageJson.productName,
-      InternalName: sanitizedAppName,
+      // "requested-execution-level": "requireAdministrator",
     },
-    extraResource: [
-      "./src/assets/images/logo.ico",
-      "./src/assets/images/logo.png",
-    ],
+    extraResource: ["./cert.crt", "./scripts/run.bat"],
   },
   rebuildConfig: {},
   makers: [
@@ -41,8 +36,6 @@ module.exports = {
             .replace(/\\/g, "/"),
         setupIcon: path.resolve(__dirname, "./src/assets/images/logo.ico"),
         skipUpdateIcon: true,
-        authors: packageJson.author,
-        description: packageJson.description,
         // Optional: Code signing
         // certificateFile: "./cert.pfx",
         // certificatePassword: process.env.CERTIFICATE_PASSWORD
