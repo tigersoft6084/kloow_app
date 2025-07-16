@@ -62,11 +62,7 @@ const Login = () => {
   const handleInstallCert = () => {
     window.electronAPI.installCert().then((result) => {
       setOpenCert(false);
-      if (result.status) {
-        successMessage("Success to install certificate.");
-      } else {
-        errorMessage(result.message);
-      }
+      if (!result.status) errorMessage(result.message);
     });
   };
 
