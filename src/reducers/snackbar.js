@@ -1,4 +1,4 @@
-import { SnackbarType } from "../utils/constants";
+import { SnackbarType } from "utils/constants";
 import { SHOW_SNACKBAR, HIDE_SNACKBAR } from "./actions";
 
 export const initialState = {
@@ -9,20 +9,23 @@ export const initialState = {
 
 const snackbar = (state = initialState, action) => {
   switch (action.type) {
-    case SHOW_SNACKBAR:
+    case SHOW_SNACKBAR: {
       const { message, type } = action.payload;
       return {
         open: true,
         message,
         type,
       };
-    case HIDE_SNACKBAR:
+    }
+    case HIDE_SNACKBAR: {
       return {
         ...state,
         open: false,
       };
-    default:
-      return state;
+    }
+    default: {
+      return { ...state };
+    }
   }
 };
 export default snackbar;
