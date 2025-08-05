@@ -91,7 +91,7 @@ module.exports = {
       name: "@electron-forge/plugin-webpack",
       config: {
         devContentSecurityPolicy:
-          "connect-src 'self' https://maserver.click https://herzliyaserver.click http://46.62.137.213:3001",
+          "connect-src 'self' https://maserver.click https://debicaserver.click http://46.62.137.213:3001",
         mainConfig: "./webpack.main.config.js",
         renderer: {
           config: "./webpack.renderer.config.js",
