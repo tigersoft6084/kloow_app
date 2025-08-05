@@ -14,12 +14,16 @@ import {
   Typography,
   Modal,
   LinearProgress,
+  IconButton,
 } from "@mui/material";
+import { LogoutOutlined } from "@ant-design/icons";
 import useSnackbar from "../../hooks/useSnackbar";
+import useAuth from "../../hooks/useAuth";
 
 const Dashboard = () => {
   const { getAppList, appList } = useMain();
   const { errorMessage, successMessage } = useSnackbar();
+  const { logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [runningStatus, setRunningStatus] = useState({}); // Map of id to boolean
@@ -53,10 +57,6 @@ const Dashboard = () => {
   useEffect(() => {
     window.electronAPI.setTitle("Browser Profiles");
     window.electronAPI.onBrowserStatus(handleBrowserStatus);
-
-    return () => {
-      window.electronAPI.onBrowserStatus(null);
-    };
   }, [handleBrowserStatus]);
 
   const run = async (id, url, server) => {
@@ -117,9 +117,22 @@ const Dashboard = () => {
       {loading ? (
         <Loader />
       ) : (
-        <Stack sx={{ width: "100%", minHeight: `calc(100vh - 48px)` }}>
-          <TableContainer>
-            <Table>
+        <Stack
+          spacing={3}
+          sx={{ width: "100%", minHeight: `calc(100vh - 48px)` }}
+        >
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Typography variant="h4">Application List</Typography>
+            <IconButton onClick={logout}>
+              <LogoutOutlined />
+            </IconButton>
+          </Stack>
+          <TableContainer sx={{ maxHeight: "calc(100vh - 90px)" }}>
+            <Table stickyHeader>
               <TableHead>
                 <TableRow>
                   <TableCell>Name</TableCell>

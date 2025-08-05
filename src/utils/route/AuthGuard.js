@@ -1,20 +1,18 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-// project import
-import useAuth from "../../hooks/useAuth";
-
 // ==============================|| AUTH GUARD ||============================== //
 
 const AuthGuard = ({ children }) => {
-  const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
+  const isAuthenticated = localStorage.getItem("isAuthenticated") === "Y";
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      navigate("/auth/login", { replace: true });
+    if (!isAuthenticated) {
+      navigate("/auth/login");
+    } else {
+      navigate("/main/dashboard");
     }
-  }, [isLoggedIn, navigate]);
+  }, [isAuthenticated, navigate]);
 
   return children;
 };

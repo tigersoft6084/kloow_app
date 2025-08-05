@@ -1,122 +1,172 @@
-import React, { createContext, useReducer } from "react";
+import React, { createContext } from "react";
+import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 
-import { LOGIN, LOGOUT } from "../reducers/actions";
-import authReducer, { initialState } from "../reducers/auth";
+import axios from "axios";
+
+import useSnackbar from "../hooks/useSnackbar";
 
 import { sleep } from "../utils/common";
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(authReducer, initialState);
+  const navigate = useNavigate();
+  const { errorMessage, successMessage } = useSnackbar();
 
-  const extractErrorMessage = (htmlString) => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlString, "text/html");
-    const contentDiv = doc.querySelector(
-      ".wc-block-components-notice-banner__content"
-    );
-    return contentDiv ? contentDiv.textContent.trim() : null;
-  };
+  const axiosServices = axios.create({
+    baseURL: "http://46.62.137.213:3001/api/v1",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
-  const getLoginNonce = async () => {
-    try {
-      const response = await fetch("https://maserver.click/my-account-2/");
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const htmlContent = await response.text();
-      const regex = /id="woocommerce-login-nonce"[^>]*value="([^"]+)"/;
-      const match = htmlContent.match(regex);
-      if (match && match[1]) {
-        return match[1];
-      } else {
-        return null;
-      }
-    } catch (error) {
-      return null;
+  // Add Authorization header with access token if available
+  axiosServices.interceptors.request.use((config) => {
+    const accessToken = localStorage.getItem("accessToken");
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
-  };
-  // Function to extract _wpnonce from HTML using regex
-  const extractWpNonce = (html) => {
-    try {
-      // Regex to match the logout link and capture _wpnonce
-      const regex = /wp\.apiFetch\.createNonceMiddleware\s*\(\s*"([^"]+)"\s*\)/;
-      const match = html.match(regex);
+    return config;
+  });
 
-      if (match && match[1]) {
-        return match[1]; // Captured _wpnonce value
+  axiosServices.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      let originalRequest = error.config;
+
+      // Handle 403 Forbidden error
+      if (error.response?.status === 403) {
+        errorMessage(error.response.data.message);
+        localStorage.removeItem("isAuthenticated");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        navigate("/auth/login");
+        return Promise.reject(error);
       }
-      return null;
-    } catch (error) {
-      return null;
-    }
-  };
 
+      // Handle 401 Unauthorized error
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+
+        try {
+          const refreshResult = await refreshAccessToken();
+          if (refreshResult.status) {
+            localStorage.setItem("isAuthenticated", "Y");
+            originalRequest.headers.Authorization = `Bearer ${localStorage.getItem(
+              "accessToken"
+            )}`;
+            return axiosServices(originalRequest);
+          } else {
+            localStorage.removeItem("isAuthenticated");
+            localStorage.removeItem("accessToken");
+            localStorage.removeItem("refreshToken");
+            navigate("/auth/login");
+            return Promise.reject(new Error("Token refresh failed"));
+          }
+        } catch (refreshError) {
+          localStorage.removeItem("isAuthenticated");
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          navigate("/auth/login");
+          return Promise.reject(refreshError);
+        }
+      }
+
+      return Promise.reject(error);
+    }
+  );
+
+  // Updated login function to handle JWT tokens in response
   const login = async (values) => {
     try {
-      const urlEncodedData = Object.entries(values)
-        .map(
-          ([key, value]) =>
-            `${encodeURIComponent(key)}=${encodeURIComponent(value.toString())}`
-        )
-        .join("&");
+      const response = await axiosServices.post("/login", values);
 
-      let response = await fetch("https://maserver.click/my-account-2", {
-        method: "POST",
-        body: urlEncodedData,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        credentials: "include",
+      if (response.data.authentication_success) {
+        localStorage.setItem("accessToken", response.data.accessToken);
+        localStorage.setItem("refreshToken", response.data.refreshToken);
+        localStorage.setItem("isAuthenticated", "Y");
+        return { status: true, message: "Login successful" };
+      }
+
+      return {
+        status: false,
+        message: response.data.message || "Login failed",
+      };
+    } catch (error) {
+      console.error("Login error:", error);
+      return {
+        status: false,
+        message: error.response?.data?.message || "Authentication failed",
+      };
+    }
+  };
+
+  // Updated refresh token function to handle JWT tokens in response
+  const refreshAccessToken = async () => {
+    try {
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (!refreshToken) {
+        return { status: false, message: "No refresh token available" };
+      }
+
+      const response = await axiosServices.post("/refresh-token", {
+        refreshToken,
       });
 
-      const responseBody = await response.text();
-
-      if (response.redirected) {
-        const wpnonce = extractWpNonce(responseBody);
-        if (wpnonce) {
-          await window.electronAPI.setCookie({
-            name: "wpnonce",
-            value: wpnonce,
-            url: "https://maserver.click",
-          });
-        }
-        dispatch({ type: LOGIN, payload: { user: values.username } });
-        return { status: true, message: "" };
-      } else {
-        return { status: false, message: extractErrorMessage(responseBody) };
+      if (response.data.authentication_success) {
+        localStorage.setItem("accessToken", response.data.accessToken);
+        return { status: true, message: "Token refreshed successfully" };
       }
+
+      return {
+        status: false,
+        message: response.data.message || "Token refresh failed",
+      };
     } catch (error) {
-      return { status: false, message: `${error.name}: ${error.message}` };
+      console.error("Token refresh error:", error);
+      return {
+        status: false,
+        message: error.response?.data?.message || "Token refresh failed",
+      };
     }
   };
 
   const signup = async (values) => {
+    console.log(values);
     await sleep(1000);
     return { status: true, data: "" };
   };
 
   const forgotPassword = async (values) => {
+    console.log(values);
     await sleep(1000);
     return { status: true, data: "" };
   };
 
   const resetPassword = async (values) => {
+    console.log(values);
     await sleep(1000);
     return { status: true, data: "" };
   };
 
+  // Updated logout function
   const logout = async () => {
-    dispatch({ type: LOGOUT });
+    try {
+      localStorage.removeItem("isAuthenticated");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      navigate("/auth/login");
+      successMessage("Successfully logged out");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
     <AuthContext.Provider
       value={{
-        ...state,
-        getLoginNonce,
+        axiosServices,
         login,
         signup,
         forgotPassword,

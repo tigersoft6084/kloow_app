@@ -1,4 +1,4 @@
-import { SnackbarType } from "utils/constants";
+import { SnackbarType } from "../utils/constants";
 import { SHOW_SNACKBAR, HIDE_SNACKBAR } from "./actions";
 
 export const initialState = {

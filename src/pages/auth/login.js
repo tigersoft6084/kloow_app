@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-// import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 // material-ui
 import {
   Box,
@@ -21,7 +21,6 @@ import {
   VisibilityOffOutlined,
   VisibilityOutlined,
 } from "@mui/icons-material";
-import Loader from "../../components/Loader";
 import { LoadingOutlined } from "@ant-design/icons";
 // import GoogleIcon from "../../assets/images/google.svg";
 
@@ -33,25 +32,18 @@ import useAuth from "../../hooks/useAuth";
 import useSnackbar from "../../hooks/useSnackbar";
 
 const Login = () => {
-  // const navigate = useNavigate();
-  const { login, getLoginNonce } = useAuth();
+  const navigate = useNavigate();
+  const { login } = useAuth();
   const { successMessage, errorMessage } = useSnackbar();
 
   const [capsWarning, setCapsWarning] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [loading, setLoading] = useState(true);
-  const [nonce, setNonce] = useState("");
-
   const [openCert, setOpenCert] = useState(false);
 
   useEffect(() => {
-    getLoginNonce().then((result) => {
-      setNonce(result);
-      setLoading(false);
-      window.electronAPI.checkCert().then((result) => {
-        if (!result) setOpenCert(true);
-      });
+    window.electronAPI.checkCert().then((result) => {
+      if (!result) setOpenCert(true);
     });
   }, []);
 
@@ -68,29 +60,23 @@ const Login = () => {
 
   return (
     <>
-      {loading && <Loader />}
       <Stack alignItems="center" justifyContent="center" sx={{ maxWidth: 440 }}>
         <Formik
           initialValues={{
-            username: "testuser",
-            password: "Sertu$12",
-            login: "Log in",
-            "woocommerce-login-nonce": "",
-            _wp_http_referer: "/my-account-2/",
+            log: "testuser",
+            pwd: "Sertu$12",
           }}
           validationSchema={Yup.object().shape({
-            username: Yup.string().max(255).required("Username is required"),
-            password: Yup.string().max(255).required("Password is required"),
+            log: Yup.string().max(255).required("Username is required"),
+            pwd: Yup.string().max(255).required("Password is required"),
           })}
           onSubmit={async (values, { setSubmitting }) => {
             setSubmitting(true);
-            const response = await login({
-              ...values,
-              "woocommerce-login-nonce": nonce,
-            });
+            const response = await login(values);
             setSubmitting(false);
             if (response.status) {
               successMessage("Success to login.");
+              navigate("/main/dashboard");
             } else {
               errorMessage(response.message);
             }
@@ -142,41 +128,41 @@ const Login = () => {
                 </Grid> */}
                 <Grid size={{ xs: 12 }}>
                   <Stack spacing={1}>
-                    <InputLabel htmlFor="username-login">
+                    <InputLabel htmlFor="log-login">
                       Username or email address*
                     </InputLabel>
                     <OutlinedInput
-                      id="username-login"
+                      id="log-login"
                       type="text"
-                      value={values.username}
-                      name="username"
+                      value={values.log}
+                      name="log"
                       onBlur={handleBlur}
                       onChange={handleChange}
-                      placeholder="Enter username address"
+                      placeholder="Enter username or email address"
                       fullWidth
-                      error={Boolean(touched.username && errors.username)}
+                      error={Boolean(touched.log && errors.log)}
                     />
-                    {touched.username && errors.username && (
+                    {touched.log && errors.log && (
                       <FormHelperText
                         error
-                        id="standard-weight-helper-text-username-login"
+                        id="standard-weight-helper-text-log-login"
                       >
-                        {errors.username}
+                        {errors.log}
                       </FormHelperText>
                     )}
                   </Stack>
                 </Grid>
                 <Grid size={{ xs: 12 }}>
                   <Stack spacing={1}>
-                    <InputLabel htmlFor="password-login">Password*</InputLabel>
+                    <InputLabel htmlFor="pwd-login">Password*</InputLabel>
                     <OutlinedInput
                       fullWidth
                       color={capsWarning ? "warning" : "primary"}
-                      error={Boolean(touched.password && errors.password)}
-                      id="password-login"
+                      error={Boolean(touched.pwd && errors.pwd)}
+                      id="pwd-login"
                       type={showPassword ? "text" : "password"}
-                      value={values.password}
-                      name="password"
+                      value={values.pwd}
+                      name="pwd"
                       onBlur={(event) => {
                         setCapsWarning(false);
                         handleBlur(event);
@@ -216,12 +202,12 @@ const Login = () => {
                         Caps lock on!
                       </Typography>
                     )}
-                    {touched.password && errors.password && (
+                    {touched.pwd && errors.pwd && (
                       <FormHelperText
                         error
-                        id="standard-weight-helper-text-password-login"
+                        id="standard-weight-helper-text-pwd-login"
                       >
-                        {errors.password}
+                        {errors.pwd}
                       </FormHelperText>
                     )}
                   </Stack>

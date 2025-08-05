@@ -13,7 +13,7 @@ import ResetPassword from "./pages/auth/reset";
 import Dashboard from "./pages/main/dashboard";
 
 const redirectRoutes = {
-  path: "",
+  path: "*",
   element: <AuthGuard />,
 };
 
@@ -47,11 +47,11 @@ const AuthRoutes = {
 const MainRoutes = {
   path: "/main",
   element: (
-    <GuestGuard>
+    <AuthGuard>
       <MainProvider>
         <Outlet />
       </MainProvider>
-    </GuestGuard>
+    </AuthGuard>
   ),
   children: [
     {

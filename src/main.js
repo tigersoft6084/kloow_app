@@ -330,35 +330,7 @@ ipcMain.on("set-title", (event, title) =>
   mainWindow.setTitle(`${app.getName()} ${app.getVersion()} - ${title}`)
 );
 
-ipcMain.handle("set-cookie", async (event, cookie) => {
-  try {
-    await session.defaultSession.cookies.set(cookie);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle("get-cookies", async (event, options) => {
-  try {
-    const cookies = await session.defaultSession.cookies.get(options);
-    return cookies;
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle("clear-cookies", async (event, options) => {
-  try {
-    await session.defaultSession.clearStorageData(options);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
 async function runExecutable(executablePath, id, url, server) {
-  console.log(server);
   try {
     const existingProcess = browserProcesses.get(id);
     if (existingProcess && !existingProcess.killed) {
@@ -383,6 +355,7 @@ async function runExecutable(executablePath, id, url, server) {
     const args = [`--user-data-dir=${userDataDir}`];
     if (server) {
       args.push(`--proxy-server="http://${server}:3000"`);
+      args.push(`--start-maximized`);
     }
     if (url) {
       args.push(`"${url}"`);

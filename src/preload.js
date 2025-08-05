@@ -1,9 +1,6 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
-  setCookie: (cookie) => ipcRenderer.invoke("set-cookie", cookie),
-  getCookies: (options) => ipcRenderer.invoke("get-cookies", options),
-  clearCookies: (options) => ipcRenderer.invoke("clear-cookies", options),
   setTitle: (title) => ipcRenderer.send("set-title", title),
   onUpdateStatus: (callback) => ipcRenderer.on("update-status", callback),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
