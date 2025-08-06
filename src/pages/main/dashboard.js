@@ -183,9 +183,9 @@ const Dashboard = () => {
           <Stack spacing={3} sx={{ p: 3 }}>
             <Box>
               <Stack spacing={1}>
-                <Typography variant="body1">
-                  We recommend downloading google chrome portable browser now to
-                  ensure proper operation.
+                <Typography variant="body1" textAlign="center">
+                  We recommend downloading updates now to
+                  <br /> ensure proper operation.
                 </Typography>
               </Stack>
             </Box>

@@ -104,74 +104,6 @@ const createTray = () => {
   });
 };
 
-function parseSetCookieHeader(header, url) {
-  if (!header || typeof header !== "string") {
-    return null;
-  }
-  const cookie = {};
-  const parts = header
-    .split(";")
-    .map((part) => part.trim())
-    .filter((part) => part);
-  const [name, ...valueParts] = parts[0].split("=");
-  cookie.name = name.trim();
-  cookie.value = valueParts.join("=").trim() || "";
-  cookie.url = url;
-  try {
-    cookie.domain = new URL(url).hostname;
-    if (cookie.domain.startsWith(".")) {
-      cookie.domain = cookie.domain.slice(1);
-    }
-  } catch (e) {
-    cookie.domain = "maserver.click";
-  }
-  cookie.path =
-    parts
-      .find((part) => part.toLowerCase().startsWith("path="))
-      ?.split("=")[1]
-      ?.trim() || "/";
-  cookie.secure = parts.some((part) => part.toLowerCase() === "secure");
-  cookie.httpOnly = parts.some((part) => part.toLowerCase() === "httponly");
-  const sameSitePart = parts.find((part) =>
-    part.toLowerCase().startsWith("samesite=")
-  );
-  if (sameSitePart) {
-    const sameSiteValue = sameSitePart.split("=")[1]?.toLowerCase();
-    cookie.sameSite =
-      sameSiteValue === "lax"
-        ? "lax"
-        : sameSiteValue === "strict"
-        ? "strict"
-        : "no_restriction";
-  } else {
-    cookie.sameSite = "no_restriction";
-  }
-  const maxAge = parts
-    .find((part) => part.toLowerCase().startsWith("max-age="))
-    ?.split("=")[1]
-    ?.trim();
-  const expires = parts
-    .find((part) => part.toLowerCase().startsWith("expires="))
-    ?.split("=")[1]
-    ?.trim();
-  if (maxAge) {
-    const maxAgeNum = parseInt(maxAge, 10);
-    if (!isNaN(maxAgeNum)) {
-      cookie.expiry = Math.floor(Date.now() / 1000) + maxAgeNum;
-    }
-  } else if (expires) {
-    try {
-      const expiryDate = new Date(expires);
-      if (!isNaN(expiryDate.getTime())) {
-        cookie.expiry = Math.floor(expiryDate.getTime() / 1000);
-      }
-    } catch (e) {
-      cookie.expiry = null;
-    }
-  }
-  return cookie;
-}
-
 app.whenReady().then(() => {
   createWindow();
   createTray();
@@ -201,37 +133,6 @@ app.whenReady().then(() => {
       })
     );
   });
-  session.defaultSession.webRequest.onHeadersReceived(
-    { urls: ["https://maserver.click/*"] },
-    async (details, callback) => {
-      const setCookieHeaders =
-        details.responseHeaders["set-cookie"] ||
-        details.responseHeaders["Set-Cookie"] ||
-        [];
-      for (const header of setCookieHeaders) {
-        try {
-          const cookie = parseSetCookieHeader(header, "https://maserver.click");
-          if (cookie) {
-            await session.defaultSession.cookies.set(cookie);
-          }
-        } catch (error) {
-          continue;
-        }
-      }
-      if ([301, 302, 303, 307, 308].includes(details.statusCode)) {
-        const redirectURL =
-          details.responseHeaders["location"] ||
-          details.responseHeaders["Location"];
-        if (redirectURL) {
-          callback({ responseHeaders: details.responseHeaders, redirectURL });
-        } else {
-          callback({ responseHeaders: details.responseHeaders });
-        }
-      } else {
-        callback({ responseHeaders: details.responseHeaders });
-      }
-    }
-  );
 });
 
 app.on("activate", () => {
@@ -248,7 +149,7 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", async () => {
   if (tray) {
     tray.destroy();
     tray = null;
@@ -265,6 +166,22 @@ app.on("before-quit", () => {
     }
   }
   browserProcesses.clear();
+
+  // Clear localStorage for the mainWindow's session
+  try {
+    if (mainWindow && mainWindow.webContents) {
+      await mainWindow.webContents.executeJavaScript(`
+        localStorage.removeItem("isAuthenticated");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+      `);
+      log.info(
+        "localStorage items (isAuthenticated, accessToken, refreshToken) cleared successfully."
+      );
+    }
+  } catch (error) {
+    log.error("Error clearing localStorage items:", error.message);
+  }
 });
 
 ipcMain.handle("get-app-version", () => app.getVersion());
