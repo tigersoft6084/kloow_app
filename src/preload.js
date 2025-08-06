@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("electronAPI", {
   setTitle: (title) => ipcRenderer.send("set-title", title),
   onUpdateStatus: (callback) => ipcRenderer.on("update-status", callback),
+  onDownloadStatus: (callback) => ipcRenderer.on("download-status", callback),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   getAppName: () => ipcRenderer.invoke("get-app-name"),
   installCert: () => ipcRenderer.invoke("install-cert"),

@@ -20,15 +20,37 @@ import { LogoutOutlined } from "@ant-design/icons";
 import useSnackbar from "../../hooks/useSnackbar";
 import useAuth from "../../hooks/useAuth";
 
+const DownloadMessage = (
+  <Typography variant="body1" textAlign="center">
+    We recommend downloading updates now to
+    <br /> ensure proper operation.
+  </Typography>
+);
+
+const ExtractFailedMessage = (
+  <Typography variant="body1" textAlign="center">
+    Failed to run the browser. <br />
+    Please download the browser again.
+  </Typography>
+);
+
+const HashMismatchMessage = (
+  <Typography variant="body1" textAlign="center">
+    The browser is corrupted. <br />
+    Please download the browser again.
+  </Typography>
+);
+
 const Dashboard = () => {
   const { getAppList, appList } = useMain();
-  const { errorMessage, successMessage } = useSnackbar();
+  const { errorMessage } = useSnackbar();
   const { logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [runningStatus, setRunningStatus] = useState({}); // Map of id to boolean
   const [tryRunningStatus, setTryRunningStatus] = useState([]);
   const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState(DownloadMessage);
 
   const handleClose = () => setOpen(false);
 
@@ -55,7 +77,7 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    window.electronAPI.setTitle("Browser Profiles");
+    window.electronAPI.setTitle("Application List");
     window.electronAPI.onBrowserStatus(handleBrowserStatus);
   }, [handleBrowserStatus]);
 
@@ -67,10 +89,24 @@ const Dashboard = () => {
       setTryRunningStatus((prev) => [...prev, id]);
       const result = await window.electronAPI.runBrowser(id, url, server);
       if (!result.status) {
-        if (result.message === "ZIP_NOT_FOUND") {
-          setOpen(true);
-        } else {
-          errorMessage(`Failed to run browser for id ${id}: ${result.message}`);
+        switch (result.message) {
+          case "ZIP_NOT_FOUND":
+            setMessage(DownloadMessage);
+            setOpen(true);
+            break;
+          case "EXTRACTION_FAILED":
+            setMessage(ExtractFailedMessage);
+            setOpen(true);
+            break;
+          case "HASH_MISMATCH":
+            setMessage(HashMismatchMessage);
+            setOpen(true);
+            break;
+          default:
+            errorMessage(
+              `Failed to run browser for id ${id}: ${result.message}`
+            );
+            break;
         }
       }
       setTryRunningStatus((prev) => prev.filter((e) => e !== id));
@@ -95,19 +131,8 @@ const Dashboard = () => {
   };
 
   const handleDownloadBrowser = async () => {
-    try {
-      setDownloading(true);
-      const result = await window.electronAPI.downloadBrowser();
-      if (!result.status) {
-        errorMessage(result.message);
-      } else {
-        successMessage("Success to download browser. Please try again.");
-      }
-    } catch (error) {
-      errorMessage(
-        `Failed to download or run the executable: ${error.message}`
-      );
-    }
+    setDownloading(true);
+    await window.electronAPI.downloadBrowser();
     setOpen(false);
     setDownloading(false);
   };
@@ -182,12 +207,7 @@ const Dashboard = () => {
           )}
           <Stack spacing={3} sx={{ p: 3 }}>
             <Box>
-              <Stack spacing={1}>
-                <Typography variant="body1" textAlign="center">
-                  We recommend downloading updates now to
-                  <br /> ensure proper operation.
-                </Typography>
-              </Stack>
+              <Stack spacing={1}>{message}</Stack>
             </Box>
             <Stack
               spacing={3}

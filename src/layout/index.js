@@ -3,10 +3,14 @@ import { Box, Button, Stack, Typography, Modal } from "@mui/material";
 import Snackbar from "../components/Snackbar";
 import SimpleBarScroll from "../components/SimpleBar";
 
+import useSnackbar from "../hooks/useSnackbar";
+
 const Layout = ({ children }) => {
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
   const [open, setOpen] = useState(false);
+
+  const { errorMessage, successMessage } = useSnackbar();
 
   useEffect(() => {
     // Check for updates on mount
@@ -25,6 +29,21 @@ const Layout = ({ children }) => {
           setOpen(false);
           setStatus("");
           setMessage("");
+          break;
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    window.electronAPI.onDownloadStatus((_, response) => {
+      switch (response.status) {
+        case "error":
+          errorMessage(response.message);
+          break;
+        case "completed":
+          successMessage(response.message);
+          break;
+        default:
           break;
       }
     });
