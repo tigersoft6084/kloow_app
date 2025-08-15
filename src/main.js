@@ -27,12 +27,42 @@ let tray = null;
 const browserProcesses = new Map();
 let isDownloading = false; // Track download state
 
-const downloadUrl = "http://46.62.137.213:5000/download";
-const appPath = path.join(app.getPath("userData"), "Browser", app.getVersion());
-const zipPath = path.join(appPath, "browser.zip");
-const zipHash =
-  "16e94c87d46680428cfaa8594cb73af526684f11087ea985334594c7eadc9f51";
-// Ensure single instance
+// Platform-specific configurations
+const config = {
+  win32: {
+    downloadUrl: "http://46.62.137.213:5000/download",
+    zipHash: "16e94c87d46680428cfaa8594cb73af526684f11087ea985334594c7eadc9f51",
+    iconFile: "logo.ico",
+    executableName: "chrome.exe",
+    appPath: path.join(app.getPath("userData"), "Browser", app.getVersion()),
+    zipPath: path.join(
+      path.join(app.getPath("userData"), "Browser", app.getVersion()),
+      "browser.zip"
+    ),
+  },
+  linux: {
+    downloadUrl: "http://46.62.137.213:5000/download_linux",
+    zipHash: "eb905a0e7675be36593c14f0eabe5bc60ec0020e45af98d90f73e82f348755af",
+    iconFile: "logo.png",
+    executableName: "chrome",
+    appPath: path.join(app.getPath("userData"), "Browser", app.getVersion()),
+    zipPath: path.join(
+      path.join(app.getPath("userData"), "Browser", app.getVersion()),
+      "browser.zip"
+    ),
+  },
+  darwin: {
+    downloadUrl: "http://46.62.137.213:5000/download_mac",
+    zipHash: "pending_mac_hash", // Add appropriate hash for macOS
+    iconFile: "logo.png",
+    executableName: "Chromium.app/Contents/MacOS/Chromium",
+    appPath: "",
+    zipPath: "",
+  },
+};
+
+const platformConfig = config[process.platform] || config.win32;
+
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
@@ -83,8 +113,12 @@ if (!gotTheLock) {
   };
 
   const createTray = () => {
-    const iconFile = process.platform === "win32" ? "logo.ico" : "logo.png";
-    const trayIconPath = path.join(__dirname, "assets", "images", iconFile);
+    const trayIconPath = path.join(
+      __dirname,
+      "assets",
+      "images",
+      platformConfig.iconFile
+    );
     let trayIcon;
     try {
       trayIcon = nativeImage.createFromPath(trayIconPath);
@@ -226,36 +260,44 @@ if (!gotTheLock) {
   ipcMain.handle("get-app-name", () => app.getName());
 
   ipcMain.handle("check-cert", () => {
-    try {
-      const output = execSync(
-        "certutil -store Root 3aa5c9285c6eb3237abfcf943d9bf504019b68fb",
-        {
-          encoding: "utf8",
-          stdio: "pipe",
+    if (process.platform === "linux") {
+    } else if (process.platform === "darwin") {
+    } else {
+      try {
+        const output = execSync(
+          "certutil -store Root 3aa5c9285c6eb3237abfcf943d9bf504019b68fb",
+          {
+            encoding: "utf8",
+            stdio: "pipe",
+          }
+        );
+        if (output.includes("3aa5c9285c6eb3237abfcf943d9bf504019b68fb")) {
+          return true;
+        } else {
+          return false;
         }
-      );
-      if (output.includes("3aa5c9285c6eb3237abfcf943d9bf504019b68fb")) {
-        return true;
-      } else {
+      } catch (error) {
         return false;
       }
-    } catch (error) {
-      return false;
     }
   });
 
   ipcMain.handle("install-cert", async () => {
-    const certutilCommand = path.join(__dirname, "..", "..", "..", "run.bat");
-    try {
-      await fs.access(certutilCommand);
-      exec(certutilCommand, { stdio: "inherit" });
-      const output = execSync(certutilCommand, {
-        encoding: "utf8",
-        stdio: "pipe",
-      });
-      return { status: true, message: output };
-    } catch (error) {
-      return { status: false, message: error.message };
+    if (process.platform === "linux") {
+    } else if (process.platform === "darwin") {
+    } else {
+      const certutilCommand = path.join(__dirname, "..", "..", "..", "run.bat");
+      try {
+        await fs.access(certutilCommand);
+        exec(certutilCommand, { stdio: "inherit" });
+        const output = execSync(certutilCommand, {
+          encoding: "utf8",
+          stdio: "pipe",
+        });
+        return { status: true, message: output };
+      } catch (error) {
+        return { status: false, message: error.message };
+      }
     }
   });
 
@@ -301,7 +343,12 @@ if (!gotTheLock) {
         });
         browserProcesses.delete(id);
       }
-      const userDataDir = path.join(appPath, id, "Data", "profile");
+      const userDataDir = path.join(
+        platformConfig.appPath,
+        id,
+        "Data",
+        "profile"
+      );
       const args = [`--user-data-dir=${userDataDir}`];
       if (server) {
         args.push(`--proxy-server="http://${server}:3000"`);
@@ -354,40 +401,52 @@ if (!gotTheLock) {
   }
 
   ipcMain.handle("run-browser", async (event, id, url, server) => {
-    const extractPath = path.join(appPath, id);
-    const executableName = "chrome.exe";
-    const executablePath = path.join(
-      extractPath,
-      "App",
-      "Chrome-bin",
-      executableName
-    );
+    const extractPath = path.join(platformConfig.appPath, id);
+    let executablePath = "";
+    switch (process.platform) {
+      case "linux":
+        executablePath = path.join(extractPath, platformConfig.executableName);
+        break;
+      case "darwin":
+        executablePath = "";
+        break;
+      case "win32":
+      default:
+        executablePath = path.join(
+          extractPath,
+          "App",
+          "Chrome-bin",
+          platformConfig.executableName
+        );
+        break;
+    }
+
     try {
-      await fs.access(zipPath);
-      log.info(`Zip file exists at ${zipPath}`);
+      await fs.access(platformConfig.zipPath);
+      log.info(`Zip file exists at ${platformConfig.zipPath}`);
     } catch {
-      log.error(`Zip file not found at ${zipPath}`);
+      log.error(`Zip file not found at ${platformConfig.zipPath}`);
       return { status: false, message: "ZIP_NOT_FOUND" };
     }
 
     try {
-      const zip = new AdmZip(zipPath);
+      const zip = new AdmZip(platformConfig.zipPath);
       zip.extractAllTo(extractPath, true);
     } catch (e) {
       log.error(`Failed to extracting zip file for ${id}: ${e.message}`);
       return { status: false, message: "EXTRACTION_FAILED" };
     }
     // Compute SHA256 hash of downloaded file
-    const fileBuffer = await fs.readFile(zipPath);
+    const fileBuffer = await fs.readFile(platformConfig.zipPath);
     const computedHash = crypto
       .createHash("sha256")
       .update(fileBuffer)
       .digest("hex")
       .toLowerCase();
 
-    if (computedHash !== zipHash) {
+    if (computedHash !== platformConfig.zipHash) {
       log.error(
-        `Hash mismatch for ${zipPath}: expected ${zipHash}, got ${computedHash}`
+        `Hash mismatch for ${platformConfig.zipPath}: expected ${platformConfig.zipHash}, got ${computedHash}`
       );
       return { status: false, message: "HASH_MISMATCH" };
     }
@@ -447,14 +506,18 @@ if (!gotTheLock) {
           message: "Download started.",
         })
       );
-      await fs.mkdir(appPath, { recursive: true });
+      await fs.mkdir(platformConfig.appPath, { recursive: true });
 
       // Check if browser.zip exists and delete it
       try {
-        await fs.access(zipPath);
-        log.info(`Existing browser.zip found at ${zipPath}, deleting...`);
-        await fs.unlink(zipPath);
-        log.info(`Successfully deleted existing browser.zip at ${zipPath}`);
+        await fs.access(platformConfig.zipPath);
+        log.info(
+          `Existing browser.zip found at ${platformConfig.zipPath}, deleting...`
+        );
+        await fs.unlink(platformConfig.zipPath);
+        log.info(
+          `Successfully deleted existing browser.zip at ${platformConfig.zipPath}`
+        );
         BrowserWindow.getAllWindows().forEach((win) =>
           win.webContents.send("download-status", {
             status: "info",
@@ -463,7 +526,9 @@ if (!gotTheLock) {
         );
       } catch (error) {
         if (error.code === "ENOENT") {
-          log.info(`No existing browser.zip found at ${zipPath}.`);
+          log.info(
+            `No existing browser.zip found at ${platformConfig.zipPath}.`
+          );
         } else {
           log.error(`Error checking/deleting browser.zip: ${error.message}`);
           throw error;
@@ -471,33 +536,37 @@ if (!gotTheLock) {
       }
 
       log.info("Downloading zip file...");
-      await download(BrowserWindow.getAllWindows()[0], downloadUrl, {
-        directory: appPath,
-        filename: "browser.zip",
-        onStarted: () => {
-          log.info("Download started.");
-        },
-        onCompleted: () => {
-          isDownloading = false; // Reset download state
-          log.info("Success to download zip file.");
-          BrowserWindow.getAllWindows().forEach((win) =>
-            win.webContents.send("download-status", {
-              status: "completed",
-              message: "Download completed successfully.",
-            })
-          );
-        },
-        onError: (error) => {
-          isDownloading = false; // Reset download state on error
-          log.error("Download failed:", error);
-          BrowserWindow.getAllWindows().forEach((win) =>
-            win.webContents.send("download-status", {
-              status: "error",
-              message: error.message,
-            })
-          );
-        },
-      });
+      await download(
+        BrowserWindow.getAllWindows()[0],
+        platformConfig.downloadUrl,
+        {
+          directory: platformConfig.appPath,
+          filename: "browser.zip",
+          onStarted: () => {
+            log.info("Download started.");
+          },
+          onCompleted: () => {
+            isDownloading = false; // Reset download state
+            log.info("Success to download zip file.");
+            BrowserWindow.getAllWindows().forEach((win) =>
+              win.webContents.send("download-status", {
+                status: "completed",
+                message: "Download completed successfully.",
+              })
+            );
+          },
+          onError: (error) => {
+            isDownloading = false; // Reset download state on error
+            log.error("Download failed:", error);
+            BrowserWindow.getAllWindows().forEach((win) =>
+              win.webContents.send("download-status", {
+                status: "error",
+                message: error.message,
+              })
+            );
+          },
+        }
+      );
     } catch (e) {
       isDownloading = false; // Reset download state on error
       log.error("Error downloading browser:", e);
