@@ -42,7 +42,7 @@ const config = {
   },
   linux: {
     downloadUrl: "http://46.62.137.213:5000/download_linux",
-    zipHash: "eb905a0e7675be36593c14f0eabe5bc60ec0020e45af98d90f73e82f348755af",
+    zipHash: "ff709f7e823b94ab06bdaef4686b2842ff8111d444109e06c8d93f00200c1743",
     iconFile: "logo.png",
     executableName: "chrome",
     appPath: path.join(app.getPath("userData"), "Browser", app.getVersion()),
@@ -261,6 +261,22 @@ if (!gotTheLock) {
 
   ipcMain.handle("check-cert", () => {
     if (process.platform === "linux") {
+      try {
+        const output = execSync(
+          "openssl crl2pkcs7 -nocrl -certfile /etc/ssl/certs/ca-certificates.crt | openssl pkcs7 -print_certs -noout",
+          {
+            encoding: "utf8",
+            stdio: "pipe",
+          }
+        );
+        if (output.includes("<HTTP-MITM-PROXY CA>")) {
+          return true;
+        } else {
+          return false;
+        }
+      } catch (error) {
+        return false;
+      }
     } else if (process.platform === "darwin") {
     } else {
       try {
@@ -322,6 +338,25 @@ if (!gotTheLock) {
     mainWindow.setTitle(`${app.getName()} ${app.getVersion()} - ${title}`)
   );
 
+  async function terminateProcess(pid) {
+    return new Promise((resolve, reject) => {
+      const command =
+        process.platform === "win32"
+          ? `taskkill /PID ${pid} /F /T`
+          : `kill -9 $(ps -o pid= --ppid ${pid} --forest | awk '{print $1}' ; echo ${pid})`;
+      exec(command, (err) => {
+        if (err) {
+          log.error(
+            `Error terminating process with PID ${pid}: ${err.message}`
+          );
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
   async function runExecutable(executablePath, id, url, server) {
     try {
       const existingProcess = browserProcesses.get(id);
@@ -329,42 +364,84 @@ if (!gotTheLock) {
         log.info(
           `Terminating existing process for id ${id}, PID: ${existingProcess.pid}`
         );
-        await new Promise((resolve, reject) => {
-          exec(`taskkill /PID ${existingProcess.pid} /F /T`, (err) => {
-            if (err) {
-              log.error(
-                `Error terminating existing process for id ${id}: ${err.message}`
-              );
-              reject(err);
-            } else {
-              resolve();
-            }
-          });
-        });
+        await terminateProcess(existingProcess.pid);
         browserProcesses.delete(id);
       }
+
+      // Set permissions for the executable (chmod 777 chrome)
+      if (process.platform === "linux") {
+        const extractPath = path.join(platformConfig.appPath, id);
+        const fileList = [
+          {
+            path: executablePath,
+            mod: "755",
+          },
+          {
+            path: path.join(extractPath, "chrome_crashpad_handler"),
+            mod: "755",
+          },
+          {
+            path: path.join(extractPath, "chrome-management-service"),
+            mod: "755",
+          },
+          {
+            path: path.join(extractPath, "chrome-sandbox"),
+            mod: "4755",
+          },
+          {
+            path: path.join(extractPath, "launcher"),
+            mod: "755",
+          },
+          {
+            path: path.join(extractPath, "xdg-mime"),
+            mod: "755",
+          },
+          {
+            path: path.join(extractPath, "xdg-settings"),
+            mod: "755",
+          },
+        ];
+        for (const file of fileList) {
+          await new Promise((resolve, reject) => {
+            exec(`chmod ${file.mod} "${file.path}"`, (err) => {
+              if (err) {
+                log.error(
+                  `Error setting permissions for ${file.path}: ${err.message}`
+                );
+                reject(err);
+              } else {
+                log.info(`Permissions set to ${file.mod} for ${file.path}`);
+                resolve();
+              }
+            });
+          });
+        }
+      }
+
       const userDataDir = path.join(
         platformConfig.appPath,
         id,
         "Data",
         "profile"
       );
+      await fs.mkdir(userDataDir, { recursive: true });
+
       const args = [`--user-data-dir=${userDataDir}`];
+
       if (server) {
         args.push(`--proxy-server="http://${server}:3000"`);
         args.push(`--start-maximized`);
       }
+
       if (url) {
         args.push(`"${url}"`);
       }
+
       const proc = spawn(executablePath, args, {
-        windowsHide: true,
+        windowsHide: process.platform === "win32",
         shell: true,
       });
       browserProcesses.set(id, proc);
-      log.info(
-        `Executable started for id ${id}, PID: ${proc.pid}, userDataDir: ${userDataDir}`
-      );
 
       proc.on("spawn", () => {
         log.info(`Process spawned successfully for id ${id}, PID: ${proc.pid}`);
@@ -463,24 +540,16 @@ if (!gotTheLock) {
 
   ipcMain.handle("stop-browser", async (event, id) => {
     try {
-      const proc = browserProcesses.get(id);
-      if (proc && !proc.killed) {
+      const existingProcess = browserProcesses.get(id);
+      if (existingProcess && !existingProcess.killed) {
         log.info(
-          `Attempting to stop browser process for id ${id}, PID: ${proc.pid}`
+          `Terminating existing process for id ${id}, PID: ${existingProcess.pid}`
         );
-        await new Promise((resolve, reject) => {
-          exec(`taskkill /PID ${proc.pid} /F /T`, (err) => {
-            if (err) {
-              log.error(`taskkill failed for PID ${proc.pid}: ${err.message}`);
-              reject(err);
-            } else {
-              log.info(`taskkill succeeded for PID ${proc.pid}`);
-              resolve();
-            }
-          });
-        });
-        proc.killed = true;
+        await terminateProcess(existingProcess.pid);
+
+        browserProcesses.killed = true;
         browserProcesses.delete(id);
+
         BrowserWindow.getAllWindows().forEach((win) =>
           win.webContents.send("browser-status", { id, running: false })
         );
