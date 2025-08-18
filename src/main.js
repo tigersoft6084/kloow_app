@@ -262,18 +262,14 @@ if (!gotTheLock) {
   ipcMain.handle("check-cert", () => {
     if (process.platform === "linux") {
       try {
-        const output = execSync(
-          "openssl crl2pkcs7 -nocrl -certfile /etc/ssl/certs/ca-certificates.crt | openssl pkcs7 -print_certs -noout",
+        execSync(
+          `certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "ProxyLogin Root CA" -i /usr/lib/proxylogin/resources/cert.crt`,
           {
             encoding: "utf8",
             stdio: "pipe",
           }
         );
-        if (output.includes("<HTTP-MITM-PROXY CA>")) {
-          return true;
-        } else {
-          return false;
-        }
+        return true;
       } catch (error) {
         return false;
       }
@@ -300,6 +296,13 @@ if (!gotTheLock) {
 
   ipcMain.handle("install-cert", async () => {
     if (process.platform === "linux") {
+      execSync(
+        `certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "ProxyLogin Root CA" -i /usr/lib/proxylogin/resources/cert.crt`,
+        {
+          encoding: "utf8",
+          stdio: "pipe",
+        }
+      );
     } else if (process.platform === "darwin") {
     } else {
       const certutilCommand = path.join(__dirname, "..", "..", "..", "run.bat");

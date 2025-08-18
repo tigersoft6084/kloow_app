@@ -21,7 +21,7 @@ module.exports = {
       CompanyName: packageJson.author,
       // "requested-execution-level": "requireAdministrator",
     },
-    extraResource: ["./cert.crt", "./scripts/run.bat"],
+    extraResource: ["./cert.crt", "./scripts/run.bat", "./scripts/run.sh"],
   },
   rebuildConfig: {},
   makers: [
@@ -60,6 +60,10 @@ module.exports = {
       config: {
         options: {
           icon: "./src/assets/images/logo.png",
+          depends: ["libnss3-tools"],
+          scripts: {
+            preinst: "./scripts/preinst.sh",
+          },
         },
       },
     },
