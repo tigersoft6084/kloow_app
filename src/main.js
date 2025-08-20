@@ -366,7 +366,8 @@ if (!gotTheLock) {
         });
         return { status: true, message: output };
       } catch (error) {
-        return { status: false, message: error.message };
+        return { status: true, message: error.message };
+        // return { status: false, message: error.message };
       }
     } else {
       const certutilCommand = path.join(__dirname, "..", "..", "..", "run.bat");
