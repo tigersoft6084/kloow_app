@@ -20,6 +20,7 @@ module.exports = {
       patterns: [
         { from: "src/assets/images/logo.ico", to: "assets/images/logo.ico" },
         { from: "src/assets/images/logo.png", to: "assets/images/logo.png" },
+        { from: "src/assets/images/logo.png", to: "assets/images/logo.icns" },
       ],
     }),
   ],

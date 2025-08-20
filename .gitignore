@@ -93,3 +93,5 @@ out/
 server/download
 .env
 extracted
+yarn.lock
+package-lock.json

@@ -19,6 +19,7 @@ const path = require("path");
 const { exec, spawn, execSync } = require("child_process");
 const isDev = require("electron-is-dev");
 const log = require("electron-log");
+const sudo = require("sudo-prompt");
 
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
@@ -53,11 +54,14 @@ const config = {
   },
   darwin: {
     downloadUrl: "http://46.62.137.213:5000/download_mac",
-    zipHash: "pending_mac_hash", // Add appropriate hash for macOS
-    iconFile: "logo.png",
+    zipHash: "f732d25747ee51d5af8ca8c7ec30d41c10686a044414dc81af17106443ef7515", // Add appropriate hash for macOS
+    iconFile: "logo.icns",
     executableName: "Chromium.app/Contents/MacOS/Chromium",
-    appPath: "",
-    zipPath: "",
+    appPath: path.join(app.getPath("userData"), "Browser", app.getVersion()),
+    zipPath: path.join(
+      path.join(app.getPath("userData"), "Browser", app.getVersion()),
+      "browser.tar.xz"
+    ),
   },
 };
 
@@ -130,8 +134,8 @@ if (!gotTheLock) {
       log.error("Error creating tray icon:", error.message);
       return;
     }
-
-    tray = new Tray(trayIcon);
+    const resizedIcon = trayIcon.resize({ width: 22, height: 22 });
+    tray = new Tray(process.platform === "darwin" ? resizedIcon : trayIcon);
     const contextMenu = Menu.buildFromTemplate([
       {
         label: "Show",
@@ -160,6 +164,9 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     if (gotTheLock) {
+      if (process.platform === "darwin") {
+        app.dock.hide();
+      }
       createWindow();
       createTray();
 
@@ -201,13 +208,26 @@ if (!gotTheLock) {
     }
   });
 
-  app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") {
-      app.quit();
-    } else if (mainWindow) {
-      mainWindow.show();
-    }
-  });
+  app.on("window-all-closed", () => app.quit());
+
+  async function terminateProcess(pid) {
+    return new Promise((resolve, reject) => {
+      const command =
+        process.platform === "win32"
+          ? `taskkill /PID ${pid} /F /T`
+          : `kill -9 $(ps -o pid= --ppid ${pid} --forest | awk '{print $1}' ; echo ${pid})`;
+      exec(command, (err) => {
+        if (err) {
+          log.error(
+            `Error terminating process with PID ${pid}: ${err.message}`
+          );
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
 
   app.on("before-quit", async (event) => {
     if (isDownloading) {
@@ -227,17 +247,15 @@ if (!gotTheLock) {
       tray.destroy();
       tray = null;
     }
+    const terminationPromises = [];
+
     for (const [, process] of browserProcesses) {
       if (process && !process.killed) {
-        exec(`taskkill /PID ${process.pid} /F /T`, (err) => {
-          if (err) {
-            log.error(
-              `Error in before-quit for PID ${process.pid}: ${err.message}`
-            );
-          }
-        });
+        terminationPromises.push(terminateProcess(process.pid));
       }
     }
+
+    await Promise.all(terminationPromises);
     browserProcesses.clear();
 
     try {
@@ -274,6 +292,22 @@ if (!gotTheLock) {
         return false;
       }
     } else if (process.platform === "darwin") {
+      try {
+        const output = execSync(
+          `security find-certificate -a -p /Library/Keychains/System.keychain | grep "MIIBhjCCASugAwIBAgIUd+87T/bW/qcVbax2mCckSE17oPowCgYIKoZIzj0EAwIw"`,
+          {
+            encoding: "utf8",
+            stdio: "pipe",
+          }
+        );
+        if (output !== "") {
+          return true;
+        } else {
+          return false;
+        }
+      } catch (error) {
+        return false;
+      }
     } else {
       try {
         const output = execSync(
@@ -296,19 +330,48 @@ if (!gotTheLock) {
 
   ipcMain.handle("install-cert", async () => {
     if (process.platform === "linux") {
-      execSync(
-        `certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "ProxyLogin Root CA" -i /usr/lib/proxylogin/resources/cert.crt`,
-        {
-          encoding: "utf8",
-          stdio: "pipe",
-        }
-      );
+      const certPath = "/usr/lib/proxylogin/resources/cert.crt";
+      try {
+        await fs.access(certPath);
+        const output = execSync(
+          `certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "ProxyLogin Root CA" -i ${certPath}`,
+          {
+            encoding: "utf8",
+            stdio: "pipe",
+          }
+        );
+        return { status: true, message: output };
+      } catch (error) {
+        return { status: false, message: error.message };
+      }
     } else if (process.platform === "darwin") {
+      const certPath =
+        "/Applications/proxylogin.app/Contents/Resources/cert.crt";
+      try {
+        await fs.access(certPath);
+        const output = await new Promise((resolve, reject) => {
+          sudo.exec(
+            `security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ${certPath}`,
+            { name: "ProxyLogin" },
+            (error, stdout, stderr) => {
+              if (error) {
+                console.error("Error:", error);
+                reject(error);
+              } else {
+                console.log("Output:", stdout);
+                resolve(stdout);
+              }
+            }
+          );
+        });
+        return { status: true, message: output };
+      } catch (error) {
+        return { status: false, message: error.message };
+      }
     } else {
       const certutilCommand = path.join(__dirname, "..", "..", "..", "run.bat");
       try {
         await fs.access(certutilCommand);
-        exec(certutilCommand, { stdio: "inherit" });
         const output = execSync(certutilCommand, {
           encoding: "utf8",
           stdio: "pipe",
@@ -340,25 +403,6 @@ if (!gotTheLock) {
   ipcMain.on("set-title", (event, title) =>
     mainWindow.setTitle(`${app.getName()} ${app.getVersion()} - ${title}`)
   );
-
-  async function terminateProcess(pid) {
-    return new Promise((resolve, reject) => {
-      const command =
-        process.platform === "win32"
-          ? `taskkill /PID ${pid} /F /T`
-          : `kill -9 $(ps -o pid= --ppid ${pid} --forest | awk '{print $1}' ; echo ${pid})`;
-      exec(command, (err) => {
-        if (err) {
-          log.error(
-            `Error terminating process with PID ${pid}: ${err.message}`
-          );
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
 
   async function runExecutable(executablePath, id, url, server) {
     try {
@@ -429,7 +473,7 @@ if (!gotTheLock) {
       );
       await fs.mkdir(userDataDir, { recursive: true });
 
-      const args = [`--user-data-dir=${userDataDir}`];
+      const args = [`--user-data-dir="${userDataDir}"`];
 
       if (server) {
         args.push(`--proxy-server="http://${server}:3000"`);
@@ -440,7 +484,7 @@ if (!gotTheLock) {
         args.push(`"${url}"`);
       }
 
-      const proc = spawn(executablePath, args, {
+      const proc = spawn(`"${executablePath}"`, args, {
         windowsHide: process.platform === "win32",
         shell: true,
       });
@@ -488,7 +532,7 @@ if (!gotTheLock) {
         executablePath = path.join(extractPath, platformConfig.executableName);
         break;
       case "darwin":
-        executablePath = "";
+        executablePath = path.join(extractPath, platformConfig.executableName);
         break;
       case "win32":
       default:
@@ -508,14 +552,6 @@ if (!gotTheLock) {
       log.error(`Zip file not found at ${platformConfig.zipPath}`);
       return { status: false, message: "ZIP_NOT_FOUND" };
     }
-
-    try {
-      const zip = new AdmZip(platformConfig.zipPath);
-      zip.extractAllTo(extractPath, true);
-    } catch (e) {
-      log.error(`Failed to extracting zip file for ${id}: ${e.message}`);
-      return { status: false, message: "EXTRACTION_FAILED" };
-    }
     // Compute SHA256 hash of downloaded file
     const fileBuffer = await fs.readFile(platformConfig.zipPath);
     const computedHash = crypto
@@ -529,6 +565,23 @@ if (!gotTheLock) {
         `Hash mismatch for ${platformConfig.zipPath}: expected ${platformConfig.zipHash}, got ${computedHash}`
       );
       return { status: false, message: "HASH_MISMATCH" };
+    }
+
+    if (process.platform === "darwin") {
+      // Ensure extractPath exists
+      await fs.mkdir(extractPath, { recursive: true });
+      // Extract tar.xz for macOS using tar command
+      execSync(`tar -xJf "${platformConfig.zipPath}" -C "${extractPath}"`, {
+        stdio: "inherit",
+      });
+    } else {
+      try {
+        const zip = new AdmZip(platformConfig.zipPath);
+        zip.extractAllTo(extractPath, true);
+      } catch (e) {
+        log.error(`Failed to extracting zip file for ${id}: ${e.message}`);
+        return { status: false, message: "EXTRACTION_FAILED" };
+      }
     }
 
     try {
@@ -613,7 +666,8 @@ if (!gotTheLock) {
         platformConfig.downloadUrl,
         {
           directory: platformConfig.appPath,
-          filename: "browser.zip",
+          filename:
+            process.platform === "darwin" ? "browser.tar.xz" : "browser.zip",
           onStarted: () => {
             log.info("Download started.");
           },
