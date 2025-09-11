@@ -63,8 +63,8 @@ const Login = () => {
       <Stack alignItems="center" justifyContent="center" sx={{ maxWidth: 440 }}>
         <Formik
           initialValues={{
-            log: "testuser",
-            pwd: "Sertu$12",
+            log: "admin@test.seo",
+            pwd: "123123123",
           }}
           validationSchema={Yup.object().shape({
             log: Yup.string().max(255).required("Username is required"),
