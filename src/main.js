@@ -32,7 +32,7 @@ let isHelperDownloading = false; // Track download state
 // Platform-specific configurations
 const config = {
   win32: {
-    downloadUrl: "http://46.62.137.213:5000/download",
+    downloadUrl: "https://www.kloow.com/download",
     zipHash: "16e94c87d46680428cfaa8594cb73af526684f11087ea985334594c7eadc9f51",
     iconFile: "logo.ico",
     executableName: "chrome.exe",
@@ -43,7 +43,7 @@ const config = {
     ),
   },
   linux: {
-    downloadUrl: "http://46.62.137.213:5000/download_linux",
+    downloadUrl: "https://www.kloow.com/download_linux",
     zipHash: "ff709f7e823b94ab06bdaef4686b2842ff8111d444109e06c8d93f00200c1743",
     iconFile: "logo.png",
     executableName: "chrome",
@@ -54,7 +54,7 @@ const config = {
     ),
   },
   darwin: {
-    downloadUrl: "http://46.62.137.213:5000/download_mac",
+    downloadUrl: "https://www.kloow.com/download_mac",
     zipHash: "f732d25747ee51d5af8ca8c7ec30d41c10686a044414dc81af17106443ef7515", // Add appropriate hash for macOS
     iconFile: "logo.icns",
     executableName: "Chromium.app/Contents/MacOS/Chromium",

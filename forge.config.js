@@ -93,8 +93,7 @@ module.exports = {
     {
       name: "@electron-forge/plugin-webpack",
       config: {
-        devContentSecurityPolicy:
-          "connect-src 'self' http://46.62.137.213:3001",
+        devContentSecurityPolicy: "connect-src 'self' https://www.kloow.com",
         mainConfig: "./webpack.main.config.js",
         renderer: {
           config: "./webpack.renderer.config.js",

@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
   const { errorMessage, successMessage } = useSnackbar();
 
   const axiosServices = axios.create({
-    baseURL: "http://46.62.137.213:3001/api/v1",
+    baseURL: "https://www.kloow.com/api/v1",
     headers: {
       "Content-Type": "application/json",
     },
