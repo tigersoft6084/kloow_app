@@ -41,6 +41,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem("isAuthenticated");
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
         navigate("/auth/login");
         return Promise.reject(error);
       }
@@ -61,6 +62,7 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem("isAuthenticated");
             localStorage.removeItem("accessToken");
             localStorage.removeItem("refreshToken");
+            localStorage.removeItem("user");
             navigate("/auth/login");
             return Promise.reject(new Error("Token refresh failed"));
           }
@@ -68,6 +70,7 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem("isAuthenticated");
           localStorage.removeItem("accessToken");
           localStorage.removeItem("refreshToken");
+          localStorage.removeItem("user");
           navigate("/auth/login");
           return Promise.reject(refreshError);
         }
@@ -86,6 +89,8 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("accessToken", response.data.accessToken);
         localStorage.setItem("refreshToken", response.data.refreshToken);
         localStorage.setItem("isAuthenticated", "Y");
+        localStorage.setItem("user", JSON.stringify(response.data.user));
+        await window.electronAPI.credentialStore(values.log, values.pwd);
         return { status: true, message: "Login successful" };
       }
 
@@ -116,6 +121,7 @@ export const AuthProvider = ({ children }) => {
 
       if (response.data.authentication_success) {
         localStorage.setItem("accessToken", response.data.accessToken);
+        localStorage.setItem("user", JSON.stringify(response.data.user));
         return { status: true, message: "Token refreshed successfully" };
       }
 
@@ -156,6 +162,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem("isAuthenticated");
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
       navigate("/auth/login");
       successMessage("Successfully logged out");
     } catch (error) {

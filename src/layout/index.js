@@ -56,21 +56,30 @@ const Layout = ({ children }) => {
   const handleClose = () => setOpen(false);
 
   return (
-    <Stack>
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        sx={{ width: "100vw", height: "100vh" }}
-      >
-        <Box sx={{ p: 3 }}>{children}</Box>
-      </Stack>
+    <Stack
+      sx={{
+        width: "100vw",
+        height: "100vh",
+        background: "rgba(22, 23, 30, 1)",
+      }}
+    >
+      {children}
       <Snackbar />
       <Modal
         open={open}
         aria-labelledby="parent-modal-title"
         aria-describedby="parent-modal-description"
       >
-        <Box className="modal" sx={{ width: "70%", maxWidth: 700 }}>
+        <Box
+          className="modal"
+          sx={{
+            width: "70%",
+            maxWidth: 700,
+            backgroundColor: "#16171E",
+            border: "solid 1px #777",
+            borderRadius: "4px",
+          }}
+        >
           <Stack spacing={3}>
             <SimpleBarScroll
               sx={{
@@ -85,15 +94,17 @@ const Layout = ({ children }) => {
               <Box>
                 {status === "update-downloaded" ? (
                   <Stack spacing={1}>
-                    <Typography variant="body1">
+                    <Typography variant="body1" color="white">
                       A new version has been downloaded. Please restart the
                       application to apply the updates.
                     </Typography>
-                    <Typography variant="body2">{message}</Typography>
+                    <Typography variant="body2" color="white">
+                      {message}
+                    </Typography>
                   </Stack>
                 ) : (
                   <Stack spacing={1}>
-                    <Typography variant="body1">
+                    <Typography variant="body1" color="white">
                       An error occurred while checking for updates. Please try
                       again later or contact support.
                     </Typography>

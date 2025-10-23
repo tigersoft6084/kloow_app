@@ -8,6 +8,7 @@ import {
   OutlinedInput,
   Stack,
   Typography,
+  Box,
 } from "@mui/material";
 
 // third party
@@ -28,7 +29,24 @@ const ResetPassword = () => {
   const { resetPassword } = useAuth();
   const { successMessage, errorMessage } = useSnackbar();
   return (
-    <Stack alignItems="center" justifyContent="center" sx={{ maxWidth: 440 }}>
+    <Stack
+      alignItems="center"
+      sx={{
+        maxWidth: 440,
+        width: "100%",
+        minHeight: "100vh",
+        color: "white",
+        mx: "auto",
+        my: "50px",
+      }}
+    >
+      <Box sx={{ mb: 4 }}>
+        <img
+          src="/assets/images/Frame-16.png"
+          alt="logo"
+          style={{ height: 56 }}
+        />
+      </Box>
       <Formik
         initialValues={{
           code: "",
@@ -62,19 +80,17 @@ const ResetPassword = () => {
           <form noValidate onSubmit={handleSubmit}>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12 }}>
-                <Typography variant="h4" textAlign="center">
-                  <b>Reset password</b>
+                <Typography variant="h5" textAlign="center">
+                  <b>Verification Code</b>
                 </Typography>
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <Typography>
-                  Please enter a code that was sent to your code address and
-                  your password will be reset.
+                <Typography textAlign="center">
+                  Code has sent to sidiat34@gmail.com
                 </Typography>
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <Stack spacing={1}>
-                  <InputLabel htmlFor="code_forgot">Code*</InputLabel>
                   <OutlinedInput
                     fullWidth
                     error={Boolean(touched.code && errors.code)}
@@ -85,6 +101,8 @@ const ResetPassword = () => {
                     onBlur={handleBlur}
                     onChange={handleChange}
                     placeholder="Reset code"
+                    size="small"
+                    sx={{ color: "white", bgcolor: "#252731" }}
                   />
                   {touched.code && errors.code && (
                     <FormHelperText error id="helper-text-code_forgot">
@@ -106,7 +124,7 @@ const ResetPassword = () => {
                   }
                   size="large"
                 >
-                  Submit
+                  Continue
                 </Button>
               </Grid>
               <Grid size={{ xs: 12 }}>
@@ -123,19 +141,7 @@ const ResetPassword = () => {
                       "&:hover": { textDecoration: "underline" },
                     }}
                   >
-                    Login
-                  </Typography>
-                  <Typography>
-                    <b>&#xb7;</b>
-                  </Typography>
-                  <Typography
-                    onClick={() => navigate("/auth/signup")}
-                    sx={{
-                      cursor: "pointer",
-                      "&:hover": { textDecoration: "underline" },
-                    }}
-                  >
-                    Create account
+                    Resend Code
                   </Typography>
                 </Stack>
               </Grid>

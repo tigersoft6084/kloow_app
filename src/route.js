@@ -6,9 +6,9 @@ import AuthGuard from "./utils/route/AuthGuard";
 import { MainProvider } from "./contexts/MainContext";
 
 import Login from "./pages/auth/login";
-import Signup from "./pages/auth/signup";
-import ForgotPassword from "./pages/auth/forgot";
-import ResetPassword from "./pages/auth/reset";
+// import Signup from "./pages/auth/signup";
+// import ForgotPassword from "./pages/auth/forgot";
+// import ResetPassword from "./pages/auth/reset";
 
 import Dashboard from "./pages/main/dashboard";
 
@@ -29,18 +29,18 @@ const AuthRoutes = {
       path: "login",
       element: <Login />,
     },
-    {
-      path: "signup",
-      element: <Signup />,
-    },
-    {
-      path: "forgot",
-      element: <ForgotPassword />,
-    },
-    {
-      path: "reset",
-      element: <ResetPassword />,
-    },
+    // {
+    //   path: "signup",
+    //   element: <Signup />,
+    // },
+    // {
+    //   path: "forgot",
+    //   element: <ForgotPassword />,
+    // },
+    // {
+    //   path: "reset",
+    //   element: <ResetPassword />,
+    // },
   ],
 };
 

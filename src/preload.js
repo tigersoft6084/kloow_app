@@ -15,4 +15,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("run-browser", id, url, server),
   stopBrowser: (id) => ipcRenderer.invoke("stop-browser", id),
   onBrowserStatus: (callback) => ipcRenderer.on("browser-status", callback),
+  credentialStore: (account, password) =>
+    ipcRenderer.invoke("store-credentials", { account, password }),
+  credentialGet: () => ipcRenderer.invoke("get-credential"),
+  setAutoLaunch: (enabled) => ipcRenderer.send("set-auto-launch", enabled),
+  getAutoLaunch: () => ipcRenderer.invoke("get-auto-launch"),
 });

@@ -16,10 +16,9 @@ module.exports = {
     name: packageJson.productName,
     executableName: sanitizedAppName,
     appCategoryType: "public.app-category.productivity",
-    appBundleId: `com.${sanitizedAppName}`,
+    appBundleId: `com.${sanitizedAppName}.app`,
     win32metadata: {
-      CompanyName: packageJson.author,
-      // "requested-execution-level": "requireAdministrator",
+      CompanyName: packageJson.author.name,
     },
     extraResource: ["./cert.crt", "./scripts/run.bat"],
   },

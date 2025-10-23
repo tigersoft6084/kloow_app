@@ -1,9 +1,10 @@
 // action - state management
-import { APP_LIST_WITH_PROXY } from "./actions";
+import { APP_LIST_WITH_PROXY, SEARCH_APPLICATION } from "./actions";
 
 // initial state
 export const initialState = {
   appList: [],
+  searchPattern: "",
 };
 
 const main = (state = initialState, action) => {
@@ -13,6 +14,13 @@ const main = (state = initialState, action) => {
       return {
         ...state,
         appList,
+      };
+    }
+    case SEARCH_APPLICATION: {
+      const { searchPattern } = action.payload;
+      return {
+        ...state,
+        searchPattern,
       };
     }
     default: {

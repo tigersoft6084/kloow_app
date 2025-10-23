@@ -1,7 +1,7 @@
 import React, { createContext, useReducer } from "react";
 import PropTypes from "prop-types";
 
-import { APP_LIST_WITH_PROXY } from "../reducers/actions";
+import { APP_LIST_WITH_PROXY, SEARCH_APPLICATION } from "../reducers/actions";
 import MainReducer, { initialState } from "../reducers/main";
 import useAuth from "../hooks/useAuth";
 
@@ -19,7 +19,41 @@ export const MainProvider = ({ children }) => {
         type: APP_LIST_WITH_PROXY,
         payload: { appList: response.data.appList },
       });
-      return { status: true, message: "" };
+      return response.data.appList;
+    } catch (error) {
+      return [];
+    }
+  };
+
+  const setSearchPattern = (searchPattern) => {
+    dispatch({
+      type: SEARCH_APPLICATION,
+      payload: { searchPattern },
+    });
+  };
+
+  const setLog = async (id) => {
+    try {
+      const response = await axiosServices.post("/logs", { id });
+      dispatch({
+        type: APP_LIST_WITH_PROXY,
+        payload: { appList: response.data.appList },
+      });
+    } catch (error) {
+      return {
+        status: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
+  };
+
+  const setFavorite = async (id) => {
+    try {
+      const response = await axiosServices.post("/favorites", { id });
+      dispatch({
+        type: APP_LIST_WITH_PROXY,
+        payload: { appList: response.data.appList },
+      });
     } catch (error) {
       return {
         status: false,
@@ -33,6 +67,9 @@ export const MainProvider = ({ children }) => {
       value={{
         ...state,
         getAppList,
+        setSearchPattern,
+        setLog,
+        setFavorite,
       }}
     >
       {children}

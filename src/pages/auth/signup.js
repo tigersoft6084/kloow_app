@@ -46,7 +46,24 @@ const Signup = () => {
   }, []);
 
   return (
-    <Stack alignItems="center" justifyContent="center" sx={{ maxWidth: 440 }}>
+    <Stack
+      alignItems="center"
+      sx={{
+        maxWidth: 440,
+        width: "100%",
+        minHeight: "100vh",
+        color: "white",
+        mx: "auto",
+        my: "50px",
+      }}
+    >
+      <Box sx={{ mb: 4 }}>
+        <img
+          src="/assets/images/Frame-16.png"
+          alt="logo"
+          style={{ height: 56 }}
+        />
+      </Box>
       <Formik
         initialValues={{
           email: "",
@@ -137,6 +154,8 @@ const Signup = () => {
                     placeholder="Enter email address"
                     fullWidth
                     error={Boolean(touched.email && errors.email)}
+                    size="small"
+                    sx={{ color: "white", bgcolor: "#252731" }}
                   />
                   {touched.email && errors.email && (
                     <FormHelperText
@@ -188,6 +207,7 @@ const Signup = () => {
                       </InputAdornment>
                     }
                     placeholder="Enter password"
+                    sx={{ color: "white", bgcolor: "#252731" }}
                   />
                   {capsWarning && (
                     <Typography
@@ -268,6 +288,7 @@ const Signup = () => {
                     </IconButton>
                   }
                   placeholder="Enter confirm password"
+                  sx={{ color: "white", bgcolor: "#252731" }}
                 />
                 {touched.password_confirm && errors.password_confirm && (
                   <FormHelperText error>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
@@ -8,8 +8,9 @@ import {
   OutlinedInput,
   Stack,
   Typography,
+  Box,
 } from "@mui/material";
-
+import KeyboardBackspaceIcon from "@mui/icons-material/KeyboardBackspace";
 // third party
 import * as Yup from "yup";
 import { Formik } from "formik";
@@ -17,6 +18,7 @@ import { Formik } from "formik";
 // mui-icon
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import { LoadingOutlined } from "@ant-design/icons";
+import LogoIcon from "../../assets/images/logo_title.png";
 
 import useAuth from "../../hooks/useAuth";
 import useSnackbar from "../../hooks/useSnackbar";
@@ -27,8 +29,26 @@ const ForgotPassword = () => {
   const navigate = useNavigate();
   const { forgotPassword } = useAuth();
   const { successMessage, errorMessage } = useSnackbar();
+
+  useEffect(() => {
+    window.electronAPI.setTitle("Forget Password");
+  }, []);
+
   return (
-    <Stack alignItems="center" justifyContent="center" sx={{ maxWidth: 440 }}>
+    <Stack
+      alignItems="center"
+      justifyContent="center"
+      sx={{
+        maxWidth: 400,
+        width: "100%",
+        minHeight: "100vh",
+        color: "white",
+        margin: "auto",
+      }}
+    >
+      <Box sx={{ mb: 4 }}>
+        <img src={LogoIcon} alt="logo" style={{ height: 24 }} />
+      </Box>
       <Formik
         initialValues={{
           email: "",
@@ -63,19 +83,18 @@ const ForgotPassword = () => {
           <form noValidate onSubmit={handleSubmit}>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12 }}>
-                <Typography variant="h4" textAlign="center">
-                  <b>Forgot you password?</b>
+                <Typography variant="h5" textAlign="center">
+                  <b>Forget Password?</b>
                 </Typography>
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <Typography>
+                <Typography variant="body1" textAlign="center">
                   Please provide your email address and we{"'"}ll send you
                   instructions on how to change your password.
                 </Typography>
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <Stack spacing={1}>
-                  <InputLabel htmlFor="email_forgot">Email*</InputLabel>
                   <OutlinedInput
                     fullWidth
                     error={Boolean(touched.email && errors.email)}
@@ -85,7 +104,9 @@ const ForgotPassword = () => {
                     name="email"
                     onBlur={handleBlur}
                     onChange={handleChange}
-                    placeholder="Enter email address"
+                    placeholder="Email address"
+                    size="small"
+                    sx={{ color: "white", bgcolor: "#252731" }}
                   />
                   {touched.email && errors.email && (
                     <FormHelperText error id="helper-text-email_forgot">
@@ -117,6 +138,7 @@ const ForgotPassword = () => {
                   justifyContent="center"
                   spacing={1}
                 >
+                  <KeyboardBackspaceIcon />
                   <Typography
                     onClick={() => navigate("/auth/login")}
                     sx={{
@@ -124,19 +146,7 @@ const ForgotPassword = () => {
                       "&:hover": { textDecoration: "underline" },
                     }}
                   >
-                    Login
-                  </Typography>
-                  <Typography>
-                    <b>&#xb7;</b>
-                  </Typography>
-                  <Typography
-                    onClick={() => navigate("/auth/signup")}
-                    sx={{
-                      cursor: "pointer",
-                      "&:hover": { textDecoration: "underline" },
-                    }}
-                  >
-                    Create account
+                    Go Back
                   </Typography>
                 </Stack>
               </Grid>

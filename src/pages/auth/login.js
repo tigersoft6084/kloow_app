@@ -8,7 +8,6 @@ import {
   Grid,
   IconButton,
   InputAdornment,
-  InputLabel,
   OutlinedInput,
   Stack,
   Typography,
@@ -17,12 +16,13 @@ import {
 } from "@mui/material";
 // assets
 import {
-  LoginOutlined,
+  // LoginOutlined,
   VisibilityOffOutlined,
   VisibilityOutlined,
 } from "@mui/icons-material";
-import { LoadingOutlined } from "@ant-design/icons";
+// import { LoadingOutlined } from "@ant-design/icons";
 // import GoogleIcon from "../../assets/images/google.svg";
+import LogoIcon from "../../assets/images/logo_title.png";
 
 // third party
 import * as Yup from "yup";
@@ -58,13 +58,62 @@ const Login = () => {
     });
   };
 
+  const [credential, setCredential] = useState({ log: "", pwd: "" });
+
+  useEffect(() => {
+    const fetchCredential = async () => {
+      const cred = await window.electronAPI.credentialGet();
+      setCredential(cred);
+    };
+    fetchCredential();
+  }, []);
+
   return (
     <>
-      <Stack alignItems="center" justifyContent="center" sx={{ maxWidth: 440 }}>
+      <Box
+        sx={{
+          position: "fixed",
+          width: "100vw",
+          height: "100vh",
+          zIndex: 1,
+          background:
+            "radial-gradient(40% 40% at 50% 40%, rgba(19, 33, 65, 1) 0%,  rgba(22, 23, 30, 1) 100%)",
+        }}
+      />
+      <Stack
+        alignItems="center"
+        sx={{
+          pt: "100px",
+          maxWidth: 375,
+          width: "100%",
+          minHeight: "100vh",
+          color: "white",
+          margin: "auto",
+          zIndex: 2,
+        }}
+      >
+        <Box sx={{ mb: "60px" }}>
+          <img src={LogoIcon} alt="logo" style={{ height: 24 }} />
+        </Box>
+        <Typography
+          textAlign="center"
+          sx={{
+            fontSize: 24,
+            fontWeight: 600,
+            lineHeight: "30px",
+            letterSpacing: -0.15,
+            mb: 4,
+          }}
+        >
+          Log In back to
+          <br />
+          your account
+        </Typography>
         <Formik
+          enableReinitialize
           initialValues={{
-            log: "admin@test.seo",
-            pwd: "123123123",
+            log: credential?.log,
+            pwd: credential?.pwd,
           }}
           validationSchema={Yup.object().shape({
             log: Yup.string().max(255).required("Username is required"),
@@ -92,12 +141,7 @@ const Login = () => {
             values,
           }) => (
             <form noValidate onSubmit={handleSubmit}>
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="h4" textAlign="center">
-                    <b>Login</b>
-                  </Typography>
-                </Grid>
+              <Grid container spacing={1}>
                 {/* <Grid size={{ xs: 12 }}>
                   <Button
                     fullWidth
@@ -128,9 +172,6 @@ const Login = () => {
                 </Grid> */}
                 <Grid size={{ xs: 12 }}>
                   <Stack spacing={1}>
-                    <InputLabel htmlFor="log-login">
-                      Username or email address*
-                    </InputLabel>
                     <OutlinedInput
                       id="log-login"
                       type="text"
@@ -138,14 +179,21 @@ const Login = () => {
                       name="log"
                       onBlur={handleBlur}
                       onChange={handleChange}
-                      placeholder="Enter username or email address"
+                      placeholder="Email address"
                       fullWidth
                       error={Boolean(touched.log && errors.log)}
+                      size="small"
+                      sx={{
+                        color: "white",
+                        bgcolor: "#252731",
+                        border: "solid 1px #343847",
+                      }}
                     />
                     {touched.log && errors.log && (
                       <FormHelperText
                         error
                         id="standard-weight-helper-text-log-login"
+                        sx={{ fontSize: "14px" }}
                       >
                         {errors.log}
                       </FormHelperText>
@@ -154,15 +202,21 @@ const Login = () => {
                 </Grid>
                 <Grid size={{ xs: 12 }}>
                   <Stack spacing={1}>
-                    <InputLabel htmlFor="pwd-login">Password*</InputLabel>
                     <OutlinedInput
                       fullWidth
+                      placeholder="Password"
                       color={capsWarning ? "warning" : "primary"}
                       error={Boolean(touched.pwd && errors.pwd)}
                       id="pwd-login"
                       type={showPassword ? "text" : "password"}
                       value={values.pwd}
                       name="pwd"
+                      size="small"
+                      sx={{
+                        color: "white",
+                        bgcolor: "#252731",
+                        border: "solid 1px #343847",
+                      }}
                       onBlur={(event) => {
                         setCapsWarning(false);
                         handleBlur(event);
@@ -184,14 +238,13 @@ const Login = () => {
                             edge="end"
                           >
                             {showPassword ? (
-                              <VisibilityOutlined />
+                              <VisibilityOutlined sx={{ color: "white" }} />
                             ) : (
-                              <VisibilityOffOutlined />
+                              <VisibilityOffOutlined sx={{ color: "white" }} />
                             )}
                           </IconButton>
                         </InputAdornment>
                       }
-                      placeholder="Enter password"
                     />
                     {capsWarning && (
                       <Typography
@@ -206,6 +259,7 @@ const Login = () => {
                       <FormHelperText
                         error
                         id="standard-weight-helper-text-pwd-login"
+                        sx={{ fontSize: "14px" }}
                       >
                         {errors.pwd}
                       </FormHelperText>
@@ -219,12 +273,10 @@ const Login = () => {
                     fullWidth
                     type="submit"
                     variant="contained"
-                    startIcon={
-                      isSubmitting ? <LoadingOutlined /> : <LoginOutlined />
-                    }
                     size="large"
+                    sx={{ mt: 3 }}
                   >
-                    Login
+                    Log In
                   </Button>
                 </Grid>
                 {/* <Grid size={{ xs: 12 }}>
@@ -267,14 +319,23 @@ const Login = () => {
         aria-labelledby="parent-modal-title"
         aria-describedby="parent-modal-description"
       >
-        <Box className="modal" sx={{ width: 400 }}>
+        <Box
+          className="modal"
+          sx={{
+            width: 560,
+            backgroundColor: "#16171E",
+            border: "solid 1px #343951",
+            borderRadius: "8px",
+            py: 4,
+          }}
+        >
           <Stack spacing={3}>
             <Box>
-              <Stack spacing={1} alignItems={"center"}>
+              <Stack spacing={3} alignItems={"center"}>
                 <Typography variant="h6" color="error">
                   Certificate Required
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" color="white" textAlign="center">
                   You must install the certificate to use the proxy service.
                 </Typography>
               </Stack>
@@ -289,6 +350,8 @@ const Login = () => {
                 variant="contained"
                 disableElevation
                 onClick={handleInstallCert}
+                size="large"
+                sx={{ minWidth: 160 }}
               >
                 Install
               </Button>
