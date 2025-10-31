@@ -20,4 +20,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
   credentialGet: () => ipcRenderer.invoke("get-credential"),
   setAutoLaunch: (enabled) => ipcRenderer.send("set-auto-launch", enabled),
   getAutoLaunch: () => ipcRenderer.invoke("get-auto-launch"),
+  openExternal: (url) => ipcRenderer.invoke("open-external", url),
 });

@@ -19,7 +19,6 @@ import {
   MenuItem,
   OutlinedInput,
   Divider,
-  FormControl,
   Tooltip,
 } from "@mui/material";
 import { FavoriteBorder, Language } from "@mui/icons-material";
@@ -27,6 +26,7 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import FavoriteOutlinedIcon from "@mui/icons-material/FavoriteOutlined";
+import UpgradeOutlinedIcon from "@mui/icons-material/UpgradeOutlined";
 import { ExpandMore, ExpandLess, Check } from "@mui/icons-material";
 
 import AddIcon from "@mui/icons-material/Add";
@@ -318,7 +318,10 @@ const Dashboard = () => {
           opacity: 0.5,
         }}
       />
-      <Stack spacing={0} sx={{ width: "100%", zIndex: 2 }}>
+      <Stack
+        spacing={0}
+        sx={{ width: "100%", zIndex: 2, maxWidth: 1447, mx: "auto" }}
+      >
         <Stack
           direction="row"
           justifyContent="space-between"
@@ -531,7 +534,16 @@ const Dashboard = () => {
           </Stack>
         </Stack>
       </Stack>
-      <Stack direction={"row"} sx={{ height: "100vh", zIndex: 2 }}>
+      <Stack
+        direction={"row"}
+        sx={{
+          height: "100vh",
+          width: "100%",
+          maxWidth: 1447,
+          mx: "auto",
+          zIndex: 2,
+        }}
+      >
         <Box sx={{ width: 240, height: "100vh", p: 2.5 }}>
           <List>
             {Object.keys(Tabs).map((key) => (
@@ -552,7 +564,7 @@ const Dashboard = () => {
             ))}
           </List>
         </Box>
-        <Box sx={{ width: `calc(100vw - 240px)` }}>
+        <Box sx={{ width: "max-content", flexGrow: 1, p: 0 }}>
           {loading ? (
             <Loader />
           ) : (
@@ -701,7 +713,7 @@ const Dashboard = () => {
                   px: 2.5,
                 }}
               >
-                <Grid container spacing={3} >
+                <Grid container spacing={3}>
                   {getSortedApps()
                     .filter((app) => {
                       if (!searchPattern) return true;
@@ -818,36 +830,57 @@ const Dashboard = () => {
                               </Typography>
                             </Tooltip>
                             <Box sx={{ height: 4 }}></Box>
-                            <Button
-                              fullWidth
-                              disableElevation
-                              variant="contained"
-                              onClick={() =>
-                                runningStatus[app.id]
-                                  ? stop(app.id)
-                                  : run(app.id, app.initUrl, app.servers?.[0])
-                              }
-                              disabled={tryRunningStatus.includes(app.id)}
-                              sx={{
-                                fontWeight: "bold",
-                                borderRadius: "8px",
-                                backgroundColor: runningStatus[app.id]
-                                  ? "#E03E3E"
-                                  : "#3A71E1",
-                              }}
-                            >
-                              {runningStatus[app.id] ? (
-                                <>
-                                  <PauseIcon sx={{ mr: 1 }} />
-                                  STOP
-                                </>
-                              ) : (
-                                <>
-                                  <PlayArrowIcon sx={{ mr: 1 }} />
-                                  RUN
-                                </>
-                              )}
-                            </Button>
+                            {app.isAllowed ? (
+                              <Button
+                                fullWidth
+                                disableElevation
+                                variant="contained"
+                                onClick={() =>
+                                  runningStatus[app.id]
+                                    ? stop(app.id)
+                                    : run(app.id, app.initUrl, app.servers?.[0])
+                                }
+                                disabled={tryRunningStatus.includes(app.id)}
+                                sx={{
+                                  fontWeight: "bold",
+                                  borderRadius: "8px",
+                                  backgroundColor: runningStatus[app.id]
+                                    ? "#E03E3E"
+                                    : "#3A71E1",
+                                }}
+                              >
+                                {runningStatus[app.id] ? (
+                                  <>
+                                    <PauseIcon sx={{ mr: 1 }} />
+                                    STOP
+                                  </>
+                                ) : (
+                                  <>
+                                    <PlayArrowIcon sx={{ mr: 1 }} />
+                                    RUN
+                                  </>
+                                )}
+                              </Button>
+                            ) : (
+                              <Button
+                                fullWidth
+                                disableElevation
+                                variant="contained"
+                                onClick={() =>
+                                  window.electronAPI.openExternal(
+                                    `https://${app.domain}`
+                                  )
+                                }
+                                sx={{
+                                  fontWeight: "bold",
+                                  borderRadius: "8px",
+                                  backgroundColor: "#c74ad3",
+                                }}
+                              >
+                                <UpgradeOutlinedIcon />
+                                UPGRADE
+                              </Button>
+                            )}
                           </Stack>
                         </Stack>
                       </Grid>

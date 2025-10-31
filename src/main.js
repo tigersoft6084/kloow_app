@@ -7,6 +7,7 @@ const {
   ipcMain,
   Tray,
   nativeImage,
+  shell,
 } = require("electron");
 const {
   ersPlatform,
@@ -156,7 +157,7 @@ if (!gotTheLock) {
     });
 
     mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-    if (isDev) mainWindow.webContents.openDevTools();
+    // if (isDev) mainWindow.webContents.openDevTools();
   };
 
   const createTray = () => {
@@ -405,7 +406,8 @@ if (!gotTheLock) {
       const certutilCommand = path.join(__dirname, "..", "..", "..", "run.bat");
       try {
         await fs.access(certutilCommand);
-        const output = execSync(certutilCommand, {
+        const command = `"${certutilCommand}"`;
+        const output = execSync(command, {
           encoding: "utf8",
           stdio: "pipe",
         });
@@ -782,5 +784,17 @@ if (!gotTheLock) {
   ipcMain.handle("get-auto-launch", async () => {
     const settings = await loadSettings();
     return settings.autoLaunch;
+  });
+
+  ipcMain.handle("open-external", async (event, url) => {
+    // validate url (very important if url can come from untrusted sources)
+    try {
+      const validated = new URL(url); // throws if invalid
+      // optionally restrict to specific protocols/domains
+      return await shell.openExternal(validated.toString());
+    } catch (err) {
+      console.error("Invalid URL or failed to open", err);
+      throw err;
+    }
   });
 }
