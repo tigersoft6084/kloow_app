@@ -60,7 +60,7 @@ const config = {
   darwin: {
     downloadUrl: "https://www.kloow.com/download_mac",
     zipHash: "f732d25747ee51d5af8ca8c7ec30d41c10686a044414dc81af17106443ef7515", // Add appropriate hash for macOS
-    iconFile: "logo.icns",
+    iconFile: "logo.png",
     executableName: "Chromium.app/Contents/MacOS/Chromium",
     appPath: path.join(app.getPath("userData"), "Browser", app.getVersion()),
     zipPath: path.join(
