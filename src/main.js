@@ -508,7 +508,7 @@ if (!gotTheLock) {
       );
       await fs.mkdir(userDataDir, { recursive: true });
 
-      const args = [`--user-data-dir="${userDataDir}"`];
+      const args = [`--incognito`, `--user-data-dir="${userDataDir}"`];
 
       if (server) {
         args.push(`--proxy-server="http://${server}:3000"`);
