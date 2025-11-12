@@ -50,6 +50,7 @@ import DefaultAppImage from "../../assets/images/logo.png";
 
 import SettingsIcon from "../../assets/icons/settings.png";
 import LoginIcon from "../../assets/icons/login.png";
+import RefreshIcon from "../../assets/icons/refresh.png";
 
 const DownloadMessage = (
   <Typography variant="body1" textAlign="center" color="white">
@@ -364,6 +365,29 @@ const Dashboard = () => {
             }}
           />
           <Stack direction="row" alignItems="center" spacing={1.5}>
+            <IconButton
+              onClick={async () => {
+                setLoading(true);
+                await Promise.all(
+                  appList.map(async (app) => {
+                    if (runningStatus[app.id]) {
+                      await window.electronAPI.stopBrowser(app.id);
+                    }
+                  })
+                );
+                getAppList().then((appList) => {
+                  const initialStatus = appList.reduce((acc, app) => {
+                    acc[app.id] = false;
+                    return acc;
+                  }, {});
+                  setRunningStatus(initialStatus);
+                  setLoading(false);
+                });
+              }}
+              sx={{ color: "white", p: 0 }}
+            >
+              <img src={RefreshIcon} style={{ width: 34, height: 34 }} />
+            </IconButton>
             <IconButton
               onClick={handleMenuOpen}
               aria-controls={menuOpen ? "profile-menu" : undefined}
