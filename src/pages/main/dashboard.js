@@ -35,6 +35,10 @@ import CloseIcon from "@mui/icons-material/Close";
 import ProfileIcon from "../../assets/icons/profile.png";
 import LogoutIcon from "../../assets/icons/logout.png";
 import SearchIcon from "../../assets/icons/search.png";
+import SettingsIcon from "../../assets/icons/settings.png";
+import LoginIcon from "../../assets/icons/login.png";
+import RefreshIcon from "../../assets/icons/refresh.png";
+import DefaultAppImage from "../../assets/images/logo.png";
 import LogoWithTitle from "../../assets/images/logo_title.png";
 
 import Loader from "../../components/Loader";
@@ -44,13 +48,6 @@ import IOSSwitch from "../../components/IOSSwitch";
 import useSnackbar from "../../hooks/useSnackbar";
 import useMain from "../../hooks/useMain";
 import useAuth from "../../hooks/useAuth";
-
-import DefaultAppIcon from "../../assets/images/logo_title.png";
-import DefaultAppImage from "../../assets/images/logo.png";
-
-import SettingsIcon from "../../assets/icons/settings.png";
-import LoginIcon from "../../assets/icons/login.png";
-import RefreshIcon from "../../assets/icons/refresh.png";
 
 const DownloadMessage = (
   <Typography variant="body1" textAlign="center" color="white">
@@ -339,7 +336,11 @@ const Dashboard = () => {
             placeholder="Search applications..."
             startAdornment={
               <InputAdornment position="start">
-                <img src={SearchIcon} style={{ width: 16, height: 16 }} />
+                <img
+                  src={SearchIcon}
+                  alt="search"
+                  style={{ width: 16, height: 16 }}
+                />
               </InputAdornment>
             }
             sx={{
@@ -386,7 +387,11 @@ const Dashboard = () => {
               }}
               sx={{ color: "white", p: 0 }}
             >
-              <img src={RefreshIcon} style={{ width: 34, height: 34 }} />
+              <img
+                src={RefreshIcon}
+                alt="refresh"
+                style={{ width: 34, height: 34 }}
+              />
             </IconButton>
             <IconButton
               onClick={handleMenuOpen}
@@ -395,10 +400,18 @@ const Dashboard = () => {
               aria-expanded={menuOpen ? "true" : undefined}
               sx={{ color: "white", p: 0 }}
             >
-              <img src={ProfileIcon} style={{ width: 34, height: 34 }} />
+              <img
+                src={ProfileIcon}
+                alt="profile"
+                style={{ width: 34, height: 34 }}
+              />
             </IconButton>
             <IconButton onClick={logout} sx={{ color: "white", p: 0 }}>
-              <img src={LogoutIcon} style={{ width: 34, height: 34 }} />
+              <img
+                src={LogoutIcon}
+                alt="logout"
+                style={{ width: 34, height: 34 }}
+              />
             </IconButton>
           </Stack>
           <Menu
@@ -432,13 +445,21 @@ const Dashboard = () => {
               sx={{ color: "white" }}
             >
               <Stack direction="row" alignItems="center" spacing={1}>
-                <img src={SettingsIcon} style={{ width: 24, height: 24 }} />
+                <img
+                  src={SettingsIcon}
+                  alt="settings"
+                  style={{ width: 24, height: 24 }}
+                />
                 <Typography variant="body2">Account Settings</Typography>
               </Stack>
             </MenuItem>
             <MenuItem onClick={logout} sx={{ color: "white" }}>
               <Stack direction="row" alignItems="center" spacing={1}>
-                <img src={LoginIcon} style={{ width: 24, height: 24 }} />
+                <img
+                  src={LoginIcon}
+                  alt="logout"
+                  style={{ width: 24, height: 24 }}
+                />
                 <Typography variant="body2">Log Out</Typography>
               </Stack>
             </MenuItem>
@@ -772,7 +793,7 @@ const Dashboard = () => {
                               image={
                                 app.thumbPath !== ""
                                   ? "https://admin.kloow.com" + app.thumbPath
-                                  : DefaultAppIcon
+                                  : LogoWithTitle
                               }
                               alt="App"
                               sx={{
@@ -925,7 +946,7 @@ const Dashboard = () => {
                       }
                       return true;
                     })?.length === 0 && (
-                    <Grid item>
+                    <Grid size={{ xs: 12 }}>
                       <Typography color="white">Nothing to Show</Typography>
                     </Grid>
                   )}
