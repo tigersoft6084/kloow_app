@@ -142,34 +142,6 @@ const Login = () => {
           }) => (
             <form noValidate onSubmit={handleSubmit}>
               <Grid container spacing={1}>
-                {/* <Grid size={{ xs: 12 }}>
-                  <Button
-                    fullWidth
-                    disabled={isSubmitting}
-                    variant="outlined"
-                    startIcon={
-                      <Stack
-                        alignItems="center"
-                        justifyContent="center"
-                        sx={{ height: 44 }}
-                      >
-                        <img
-                          src={GoogleIcon}
-                          alt="google"
-                          style={{ width: 36, height: 36 }}
-                        />
-                      </Stack>
-                    }
-                    sx={{ borderRadius: "100px" }}
-                  >
-                    Continue with Google
-                  </Button>
-                </Grid>
-                <Grid size={{ xs: 12 }}>
-                  <Divider>
-                    <Typography variant="body2">OR</Typography>
-                  </Divider>
-                </Grid> */}
                 <Grid size={{ xs: 12 }}>
                   <Stack spacing={1}>
                     <OutlinedInput
@@ -279,36 +251,6 @@ const Login = () => {
                     Log In
                   </Button>
                 </Grid>
-                {/* <Grid size={{ xs: 12 }}>
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    justifyContent="center"
-                    spacing={1}
-                  >
-                    <Typography
-                      onClick={() => navigate("/auth/signup")}
-                      sx={{
-                        cursor: "pointer",
-                        "&:hover": { textDecoration: "underline" },
-                      }}
-                    >
-                      I don{"'"}t have an account. Sign Up
-                    </Typography>
-                    <Typography>
-                      <b>&#xb7;</b>
-                    </Typography>
-                    <Typography
-                      onClick={() => navigate("/auth/forgot")}
-                      sx={{
-                        cursor: "pointer",
-                        "&:hover": { textDecoration: "underline" },
-                      }}
-                    >
-                      Forgot password?
-                    </Typography>
-                  </Stack>
-                </Grid> */}
               </Grid>
             </form>
           )}

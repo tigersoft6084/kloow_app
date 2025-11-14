@@ -715,7 +715,6 @@ const Dashboard = () => {
                                 borderRadius: "6px",
                               }}
                             >
-                              {" "}
                               {sortOrder === order && (
                                 <Check sx={{ fontSize: 16, color: "black" }} />
                               )}
