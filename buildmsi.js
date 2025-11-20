@@ -50,6 +50,12 @@ if (!fs.existsSync(settingsPath)) {
       arch: "x64",
       ui: {
         chooseDirectory: true,
+        images: {
+          background: path.join(__dirname, "src", "assets", "images", "kloow_bg.jpg"),
+          banner: path.join(__dirname, "src", "assets", "images", "kloow_banner.jpg"),
+          exclamationIcon: path.join(__dirname, "src", "assets", "images", "logo.ico"),
+          infoIcon: path.join(__dirname, "src", "assets", "images", "logo.ico"),
+        }
       },
       icon: path.join(__dirname, "src", "assets", "images", "logo.ico"),
     });
