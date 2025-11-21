@@ -21,7 +21,7 @@ import {
   Divider,
   Tooltip,
 } from "@mui/material";
-import { FavoriteBorder, Language } from "@mui/icons-material";
+import { FavoriteBorder, Language, Water } from "@mui/icons-material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -40,6 +40,9 @@ import LoginIcon from "../../assets/icons/login.png";
 import RefreshIcon from "../../assets/icons/refresh.png";
 import DefaultAppImage from "../../assets/images/logo.png";
 import LogoWithTitle from "../../assets/images/logo_title.png";
+import ScreamingFrogIcon from "../../assets/images/screaming_frog.png";
+import ScreamingFrogSeoSpiderLogo from "../../assets/images/screaming_frog_seo_spider.png";
+import ScreamingFrogLogAnalyserLogo from "../../assets/images/screaming_frog_log_analyser.png";
 
 import Loader from "../../components/Loader";
 import SimpleBarScroll from "../../components/SimpleBar";
@@ -74,6 +77,7 @@ const Tabs = {
   Applications: 1,
   Favorites: 2,
   Recents: 3,
+  "Screaming Frog": 4
 };
 
 const listItemButtonSx = {
@@ -115,7 +119,7 @@ const Dashboard = () => {
   } = useMain();
   const { logout } = useAuth();
 
-  const { errorMessage } = useSnackbar();
+  const { successMessage, errorMessage } = useSnackbar();
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [runningStatus, setRunningStatus] = useState({}); // Map of id to boolean
@@ -125,7 +129,7 @@ const Dashboard = () => {
 
   const [message, setMessage] = useState(DownloadMessage);
   const [sortOrder, setSortOrder] = useState("none"); // none | az | za
-  const [selectedTab, setSelectedTab] = useState(Tabs.Applications); // all | favorites | recents
+  const [selectedTab, setSelectedTab] = useState(Tabs.Applications); // all | favorites | recents | screaming frog
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
   const [anchorElAdd, setAnchorElAdd] = useState(null);
@@ -139,6 +143,13 @@ const Dashboard = () => {
   const handleCloseSort = () => setAnchorElSort(null);
 
   const [openSetting, setOpenSetting] = useState(false);
+
+  const [sfInfo, setSfInfo] = useState({
+    os: "",
+    seoSpider: null,
+    logAnalyser: null,
+    error: null,
+  });
 
   const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
@@ -184,6 +195,14 @@ const Dashboard = () => {
       setRunningStatus(initialStatus);
       setLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    const getSFVersion = async () => {
+      const versions = await window.electronAPI.getSFVersions();
+      setSfInfo(versions);
+    };
+    getSFVersion();
   }, []);
 
   const run = async (id, url, server) => {
@@ -244,6 +263,32 @@ const Dashboard = () => {
     setDownloading(false);
   };
 
+  const crackSfSeoSpider = async () => {
+    try {
+      const result = await window.electronAPI.crackSfSeoSpider();
+      if (!result) {
+        errorMessage("Failed to crack Screaming Frog SEO Spider");
+      } else {
+        successMessage("Successfully cracked Screaming Frog SEO Spider")
+      }
+    } catch (error) {
+      errorMessage(error.message);
+    }
+  }
+
+  const crackSfLogAnalyser = async () => {
+    try {
+      const result = await window.electronAPI.crackSfLogAnalyser();
+      if (!result) {
+        errorMessage("Failed to crack Screaming Frog Log File Analyser");
+      } else {
+        successMessage("Successfully cracked Screaming Frog Log File Analyser")
+      }
+    } catch (error) {
+      errorMessage(error.message);
+    }
+  }
+
   const getSortedApps = () => {
     if (!Array.isArray(appList)) return [];
     if (selectedTab === Tabs.Recents) {
@@ -271,6 +316,8 @@ const Dashboard = () => {
         return "Favorites";
       case Tabs.Recents:
         return "Recently Used";
+      case Tabs["Screaming Frog"]:
+        return "Screaming Frog";
       default:
         return "Application List";
     }
@@ -284,6 +331,8 @@ const Dashboard = () => {
         return "Your most-used applications for quick access.";
       case Tabs.Recents:
         return "Applications you've launched recently.";
+      case Tabs["Screaming Frog"]:
+        return "The Screaming Frog SEO Spider";
       default:
         return "Pre-loaded, ready-to-use marketing tools for faster campaigns.";
     }
@@ -602,6 +651,7 @@ const Dashboard = () => {
                     {key === "Applications" && <Language />}
                     {key === "Favorites" && <FavoriteBorder />}
                     {key === "Recents" && <ScheduleIcon />}
+                    {key === "Screaming Frog" && <img src={ScreamingFrogIcon} alt="frog" style={{ width: 24, height: 24 }} />}
                   </ListItemIcon>
                   <ListItemText primary={key} sx={listItemTextSx} />
                 </ListItemButton>
@@ -639,7 +689,10 @@ const Dashboard = () => {
                     {pageDescription}
                   </Typography>
                 </Stack>
-                {selectedTab !== Tabs.Recents && (
+                {selectedTab === Tabs["Screaming Frog"] ? (
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                  </Stack>
+                ) : selectedTab !== Tabs.Recents && (
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Typography variant="body2" color="white">
                       Sort by:
@@ -757,200 +810,362 @@ const Dashboard = () => {
                   px: 2.5,
                 }}
               >
-                <Grid container spacing={3}>
-                  {getSortedApps()
-                    .filter((app) => {
-                      if (!searchPattern) return true;
-                      const pattern = searchPattern.toLowerCase();
-                      return (
-                        (app.title || "").toLowerCase().includes(pattern) ||
-                        (app.description || "").toLowerCase().includes(pattern)
-                      );
-                    })
-                    .filter((app) => {
-                      if (selectedTab === Tabs.Recents) {
-                        return !!app.lastAccessed;
-                      } else if (selectedTab === Tabs.Favorites) {
-                        return app.isFavorite;
-                      }
-                      return true;
-                    })
-                    .map((app) => (
-                      <Grid size={{ xs: 4 }} key={`app_${app.id}`}>
-                        <Stack
-                          spacing={2}
-                          sx={{
-                            width: "100%",
-                            bgcolor: "#2C3145",
-                            color: "white",
-                            borderRadius: "20px",
-                            p: 0.75,
-                          }}
-                        >
-                          <Box sx={{ position: "relative" }}>
-                            <CardMedia
-                              component="img"
-                              image={
-                                app.thumbPath !== ""
-                                  ? "https://admin.kloow.com" + app.thumbPath
-                                  : LogoWithTitle
-                              }
-                              alt="App"
+                {selectedTab === Tabs["Screaming Frog"] ? (
+                  <Grid container spacing={10}>
+                    <Grid size={6}>
+                      <Stack
+                        spacing={2}
+                        sx={{
+                          width: "100%",
+                          bgcolor: "#2C3145",
+                          color: "white",
+                          borderRadius: "20px",
+                          p: 0.75,
+                        }}
+                      >
+                        <Box sx={{ position: "relative" }}>
+                          <CardMedia
+                            component="img"
+                            image={ScreamingFrogSeoSpiderLogo}
+                            alt="App"
+                            sx={{
+                              width: "100%",
+                              height: 320,
+                              objectFit: "fill",
+                              borderRadius: "16px",
+                            }}
+                          />
+                        </Box>
+                        <Stack spacing={1.5} sx={{ p: 1.25 }}>
+                          <Tooltip title="Screaming Frog Seo Spider" placement="bottom">
+                            <Typography
+                              variant="h6"
+                              component="h2"
                               sx={{
-                                width: "100%",
-                                height: 196,
-                                objectFit: "contain",
-                                borderRadius: "16px",
+                                WebkitLineClamp: 1,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                fontWeight: "bold",
+                                fontSize: 20,
+                                lineHeight: "24px",
+                                width: "inherit",
                               }}
-                            />
-                            <Box
-                              sx={{ position: "absolute", top: 10, left: 10 }}
                             >
-                              {/* <Box
+                              Screaming Frog Seo Spider
+                            </Typography>
+                          </Tooltip>
+                          <Tooltip title="Screaming Frog SEO Spider is a desktop application that crawls websites to identify common technical SEO issues." placement="bottom">
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                color: "#D9D9D9",
+                              }}
+                            >
+                              Screaming Frog SEO Spider is a desktop application that crawls websites to identify common technical SEO issues.
+                              It mimics how search engine bots crawl a site to extract data like broken links, redirects, duplicate content, and issues with page titles and meta descriptions.
+                              This information is then presented in an easily digestible format, often with the option to export it to a spreadsheet for further analysis.
+                            </Typography>
+                          </Tooltip>
+                          <Box sx={{ height: 4 }}></Box>
+                          <Button
+                            fullWidth
+                            disableElevation
+                            variant="contained"
+                            onClick={sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? () => crackSfSeoSpider() : () => { }}
+                            sx={{
+                              fontWeight: "bold",
+                              borderRadius: "8px",
+                              backgroundColor: "#3A71E1",
+                            }}
+                            disabled={sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
+                          >
+                            {sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Crack") : ("Please install version 23.1")}
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    </Grid>
+                    <Grid size={6}>
+                      <Stack
+                        spacing={2}
+                        sx={{
+                          width: "100%",
+                          bgcolor: "#2C3145",
+                          color: "white",
+                          borderRadius: "20px",
+                          p: 0.75,
+                        }}
+                      >
+                        <Box sx={{ position: "relative" }}>
+                          <CardMedia
+                            component="img"
+                            image={ScreamingFrogLogAnalyserLogo}
+                            alt="App"
+                            sx={{
+                              width: "100%",
+                              height: 320,
+                              objectFit: "fill",
+                              borderRadius: "16px",
+                            }}
+                          />
+                        </Box>
+                        <Stack spacing={1.5} sx={{ p: 1.25 }}>
+                          <Tooltip title="Screaming Frog Log Analyser" placement="bottom">
+                            <Typography
+                              variant="h6"
+                              component="h2"
+                              sx={{
+                                WebkitLineClamp: 1,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                fontWeight: "bold",
+                                fontSize: 20,
+                                lineHeight: "24px",
+                                width: "inherit",
+                              }}
+                            >
+                              Screaming Frog Log Analyser
+                            </Typography>
+                          </Tooltip>
+                          <Tooltip title="Screaming Frog Log File Analyser is a technical SEO tool for processing and analyzing website server log files to understand search engine bot behavior, improve crawl budget, and identify crawl errors." placement="bottom">
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                color: "#D9D9D9",
+                              }}
+                            >
+                              Screaming Frog Log File Analyser is a technical SEO tool for processing and analyzing website server log files
+                              to understand search engine bot behavior, improve crawl budget, and identify crawl errors.
+                              It allows users to upload various log file formats and then provides data on what URLs were crawled, crawl frequency, response codes, and bot activity.
+                              The analysis helps with technical SEO tasks like finding broken links and slow pages.
+                            </Typography>
+                          </Tooltip>
+                          <Box sx={{ height: 4 }}></Box>
+                          <Button
+                            fullWidth
+                            disableElevation
+                            variant="contained"
+                            onClick={sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? () => crackSfLogAnalyser() : () => { }}
+                            sx={{
+                              fontWeight: "bold",
+                              borderRadius: "8px",
+                              backgroundColor: "#3A71E1",
+                            }}
+                            disabled={sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== 6.4}
+                          >
+                            {sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Crack") : ("Please install version 6.4")}
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    </Grid>
+                  </Grid>
+                ) : (
+                  <Grid container spacing={3}>
+                    {getSortedApps()
+                      .filter((app) => {
+                        if (!searchPattern) return true;
+                        const pattern = searchPattern.toLowerCase();
+                        return (
+                          (app.title || "").toLowerCase().includes(pattern) ||
+                          (app.description || "").toLowerCase().includes(pattern)
+                        );
+                      })
+                      .filter((app) => {
+                        if (selectedTab === Tabs.Recents) {
+                          return !!app.lastAccessed;
+                        } else if (selectedTab === Tabs.Favorites) {
+                          return app.isFavorite;
+                        }
+                        return true;
+                      })
+                      .map((app) => (
+                        <Grid size={{ xs: 4 }} key={`app_${app.id}`}>
+                          <Stack
+                            spacing={2}
+                            sx={{
+                              width: "100%",
+                              bgcolor: "#2C3145",
+                              color: "white",
+                              borderRadius: "20px",
+                              p: 0.75,
+                            }}
+                          >
+                            <Box sx={{ position: "relative" }}>
+                              <CardMedia
+                                component="img"
+                                image={
+                                  app.thumbPath !== ""
+                                    ? "https://admin.kloow.com" + app.thumbPath
+                                    : LogoWithTitle
+                                }
+                                alt="App"
+                                sx={{
+                                  width: "100%",
+                                  height: 196,
+                                  objectFit: "contain",
+                                  borderRadius: "16px",
+                                }}
+                              />
+                              <Box
+                                sx={{ position: "absolute", top: 10, left: 10 }}
+                              >
+                                {/* <Box
                                 sx={{ position: "absolute", top: 0, left: 0 }}
                               > */}
-                              <IconButton
-                                onClick={() => setFavorite(app?.id)}
-                                sx={{
-                                  backgroundColor: "white",
-                                  borderRadius: "8px",
-                                  width: 28,
-                                  height: 28,
-                                  "&:hover": {
+                                <IconButton
+                                  onClick={() => setFavorite(app?.id)}
+                                  sx={{
                                     backgroundColor: "white",
-                                  },
-                                }}
-                              >
-                                {app.isFavorite ? (
-                                  <FavoriteOutlinedIcon
-                                    sx={{
-                                      color: "red",
-                                      fontSize: 18,
-                                    }}
-                                  />
-                                ) : (
-                                  <FavoriteOutlinedIcon
-                                    sx={{
-                                      color: "#aaa",
-                                      fontSize: 18,
-                                    }}
-                                  />
-                                )}
-                              </IconButton>
+                                    borderRadius: "8px",
+                                    width: 28,
+                                    height: 28,
+                                    "&:hover": {
+                                      backgroundColor: "white",
+                                    },
+                                  }}
+                                >
+                                  {app.isFavorite ? (
+                                    <FavoriteOutlinedIcon
+                                      sx={{
+                                        color: "red",
+                                        fontSize: 18,
+                                      }}
+                                    />
+                                  ) : (
+                                    <FavoriteOutlinedIcon
+                                      sx={{
+                                        color: "#aaa",
+                                        fontSize: 18,
+                                      }}
+                                    />
+                                  )}
+                                </IconButton>
+                              </Box>
                             </Box>
-                          </Box>
-                          <Stack spacing={1.5} sx={{ p: 1.25 }}>
-                            <Tooltip title={app.title} placement="bottom">
-                              <Typography
-                                variant="h6"
-                                component="h2"
-                                sx={{
-                                  WebkitLineClamp: 1,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  fontWeight: "bold",
-                                  fontSize: 20,
-                                  lineHeight: "24px",
-                                  width: "inherit",
-                                }}
-                              >
-                                {app.title}
-                              </Typography>
-                            </Tooltip>
-                            <Tooltip title={app.description} placement="bottom">
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  display: "-webkit-box",
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  color: "#D9D9D9",
-                                }}
-                              >
-                                {app.description}
-                              </Typography>
-                            </Tooltip>
-                            <Box sx={{ height: 4 }}></Box>
-                            {app.isAllowed ? (
-                              <Button
-                                fullWidth
-                                disableElevation
-                                variant="contained"
-                                onClick={() =>
-                                  runningStatus[app.id]
-                                    ? stop(app.id)
-                                    : run(app.id, app.initUrl, app.servers?.[0])
-                                }
-                                disabled={tryRunningStatus.includes(app.id)}
-                                sx={{
-                                  fontWeight: "bold",
-                                  borderRadius: "8px",
-                                  backgroundColor: runningStatus[app.id]
-                                    ? "#E03E3E"
-                                    : "#3A71E1",
-                                }}
-                              >
-                                {runningStatus[app.id] ? (
-                                  <>
-                                    <PauseIcon sx={{ mr: 1 }} />
-                                    STOP
-                                  </>
-                                ) : (
-                                  <>
-                                    <PlayArrowIcon sx={{ mr: 1 }} />
-                                    RUN
-                                  </>
-                                )}
-                              </Button>
-                            ) : (
-                              <Button
-                                fullWidth
-                                disableElevation
-                                variant="contained"
-                                onClick={() =>
-                                  window.electronAPI.openExternal(
-                                    `https://${app.domain}`
-                                  )
-                                }
-                                sx={{
-                                  fontWeight: "bold",
-                                  borderRadius: "8px",
-                                  backgroundColor: "#c74ad3",
-                                }}
-                              >
-                                <UpgradeOutlinedIcon />
-                                UPGRADE
-                              </Button>
-                            )}
+                            <Stack spacing={1.5} sx={{ p: 1.25 }}>
+                              <Tooltip title={app.title} placement="bottom">
+                                <Typography
+                                  variant="h6"
+                                  component="h2"
+                                  sx={{
+                                    WebkitLineClamp: 1,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    fontWeight: "bold",
+                                    fontSize: 20,
+                                    lineHeight: "24px",
+                                    width: "inherit",
+                                  }}
+                                >
+                                  {app.title}
+                                </Typography>
+                              </Tooltip>
+                              <Tooltip title={app.description} placement="bottom">
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    color: "#D9D9D9",
+                                  }}
+                                >
+                                  {app.description}
+                                </Typography>
+                              </Tooltip>
+                              <Box sx={{ height: 4 }}></Box>
+                              {app.isAllowed ? (
+                                <Button
+                                  fullWidth
+                                  disableElevation
+                                  variant="contained"
+                                  onClick={() =>
+                                    runningStatus[app.id]
+                                      ? stop(app.id)
+                                      : run(app.id, app.initUrl, app.servers?.[0])
+                                  }
+                                  disabled={tryRunningStatus.includes(app.id)}
+                                  sx={{
+                                    fontWeight: "bold",
+                                    borderRadius: "8px",
+                                    backgroundColor: runningStatus[app.id]
+                                      ? "#E03E3E"
+                                      : "#3A71E1",
+                                  }}
+                                >
+                                  {runningStatus[app.id] ? (
+                                    <>
+                                      <PauseIcon sx={{ mr: 1 }} />
+                                      STOP
+                                    </>
+                                  ) : (
+                                    <>
+                                      <PlayArrowIcon sx={{ mr: 1 }} />
+                                      RUN
+                                    </>
+                                  )}
+                                </Button>
+                              ) : (
+                                <Button
+                                  fullWidth
+                                  disableElevation
+                                  variant="contained"
+                                  onClick={() =>
+                                    window.electronAPI.openExternal(
+                                      `https://${app.domain}`
+                                    )
+                                  }
+                                  sx={{
+                                    fontWeight: "bold",
+                                    borderRadius: "8px",
+                                    backgroundColor: "#c74ad3",
+                                  }}
+                                >
+                                  <UpgradeOutlinedIcon />
+                                  UPGRADE
+                                </Button>
+                              )}
+                            </Stack>
                           </Stack>
-                        </Stack>
-                      </Grid>
-                    ))}
-                  {getSortedApps()
-                    .filter((app) => {
-                      if (!searchPattern) return true;
-                      const pattern = searchPattern.toLowerCase();
-                      return (
-                        (app.title || "").toLowerCase().includes(pattern) ||
-                        (app.description || "").toLowerCase().includes(pattern)
-                      );
-                    })
-                    .filter((app) => {
-                      if (selectedTab === Tabs.Recents) {
-                        return !!app.lastAccessed;
-                      } else if (selectedTab === Tabs.Favorites) {
-                        return app.isFavorite;
-                      }
-                      return true;
-                    })?.length === 0 && (
-                    <Grid size={{ xs: 12 }}>
-                      <Typography color="white">Nothing to Show</Typography>
-                    </Grid>
-                  )}
-                </Grid>
+                        </Grid>
+                      ))}
+                    {getSortedApps()
+                      .filter((app) => {
+                        if (!searchPattern) return true;
+                        const pattern = searchPattern.toLowerCase();
+                        return (
+                          (app.title || "").toLowerCase().includes(pattern) ||
+                          (app.description || "").toLowerCase().includes(pattern)
+                        );
+                      })
+                      .filter((app) => {
+                        if (selectedTab === Tabs.Recents) {
+                          return !!app.lastAccessed;
+                        } else if (selectedTab === Tabs.Favorites) {
+                          return app.isFavorite;
+                        }
+                        return true;
+                      })?.length === 0 && (
+                        <Grid size={{ xs: 12 }}>
+                          <Typography color="white">Nothing to Show</Typography>
+                        </Grid>
+                      )}
+                  </Grid>
+                )}
               </SimpleBarScroll>
             </Stack>
           )}

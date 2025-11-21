@@ -21,6 +21,7 @@ const { exec, spawn, execSync } = require("child_process");
 const isDev = require("electron-is-dev");
 const log = require("electron-log");
 const sudo = require("sudo-prompt");
+const os = require("os");
 
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
@@ -217,12 +218,11 @@ if (!gotTheLock) {
       createWindow();
       createTray();
 
-      const feedUrl = `${
-        process.env.RELEASE_SERVER_URL
-      }/update/flavor/${app.getName()}/${ersPlatform(
-        process.platform,
-        process.arch
-      )}/${app.getVersion()}`;
+      const feedUrl = `${process.env.RELEASE_SERVER_URL
+        }/update/flavor/${app.getName()}/${ersPlatform(
+          process.platform,
+          process.arch
+        )}/${app.getVersion()}`;
 
       autoUpdater.setFeedURL({ url: feedUrl });
       autoUpdater.on(
@@ -796,5 +796,123 @@ if (!gotTheLock) {
       console.error("Invalid URL or failed to open", err);
       throw err;
     }
+  });
+
+  function safeExec(cmd) {
+    try {
+      return execSync(cmd, { encoding: "utf-8" }).trim();
+    } catch {
+      return null;
+    }
+  }
+
+  function exists(path) {
+    return fs.existsSync(path);
+  }
+
+  function getVersions() {
+    const platform = os.platform();
+
+    const result = {
+      os: platform,
+      seoSpider: null,
+      logAnalyser: null
+    };
+
+    // -----------------------------------------
+    // WINDOWS
+    // -----------------------------------------
+    if (platform === "win32") {
+      const getWinVersion = (name) => {
+        const cmd = `powershell "(Get-ChildItem HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall, HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall | Get-ItemProperty | Where-Object { $_.DisplayName -like '${name}*' }).DisplayVersion"`;
+        return safeExec(cmd) || null;
+      };
+
+      result.seoSpider = getWinVersion("Screaming Frog SEO Spider");
+      result.logAnalyser = getWinVersion("Screaming Frog Log File Analyser");
+      return result;
+    }
+
+    // -----------------------------------------
+    // macOS (Intel + Apple Silicon)
+    // -----------------------------------------
+    if (platform === "darwin") {
+      const getMacVersion = (appName) => {
+        const plist = `/Applications/${appName}.app/Contents/Info.plist`;
+        if (!exists(plist)) return null;
+
+        const cmd = `defaults read "${plist}" CFBundleShortVersionString`;
+        return safeExec(cmd) || null;
+      };
+
+      result.seoSpider = getMacVersion("Screaming Frog SEO Spider");
+      result.logAnalyser = getMacVersion("Screaming Frog Log File Analyser");
+
+      return result;
+    }
+
+    // -----------------------------------------
+    // LINUX (Ubuntu/Debian + Fedora/RHEL)
+    // -----------------------------------------
+    if (platform === "linux") {
+      // -------------------------
+      // Ubuntu / Debian (dpkg)
+      // -------------------------
+      const getDebVersion = (pkg) => {
+        const cmd = `dpkg -s ${pkg} 2>/dev/null | grep '^Version:' | awk '{print $2}'`;
+        return safeExec(cmd);
+      };
+
+      let seo = getDebVersion("screamingfrogseospider");
+      let log = getDebVersion("screamingfroglogfileanalyser");
+
+      // -------------------------
+      // Fedora / RHEL / CentOS (rpm)
+      // -------------------------
+      if (!seo) {
+        seo = safeExec(`rpm -q --qf "%{VERSION}" screamingfrogseospider 2>/dev/null`);
+      }
+      if (!log) {
+        log = safeExec(`rpm -q --qf "%{VERSION}" screamingfroglogfileanalyser 2>/dev/null`);
+      }
+
+      // -------------------------
+      // Fallback: Manual /opt installation (tar.gz)
+      // -------------------------
+      if (!seo && exists("/opt/screamingfrog-seo-spider/ScreamingFrogSEOSpider")) {
+        seo = safeExec("/opt/screamingfrog-seo-spider/ScreamingFrogSEOSpider --version");
+      }
+      if (!log && exists("/opt/screamingfrog-log-file-analyser/ScreamingFrogLogFileAnalyser")) {
+        log = safeExec("/opt/screamingfrog-log-file-analyser/ScreamingFrogLogFileAnalyser --version");
+      }
+
+      result.seoSpider = seo || null;
+      result.logAnalyser = log || null;
+
+      return result;
+    }
+
+    // -----------------------------------------
+    // Unsupported OS
+    // -----------------------------------------
+    return {
+      os: platform,
+      seoSpider: null,
+      logAnalyser: null,
+      error: "Unsupported OS"
+    };
+  }
+
+  ipcMain.handle("get-sf-version", async (event) => {
+    const versionInfo = getVersions();
+    return versionInfo;
+  });
+
+  ipcMain.handle("crack-sf-seo-spider", async (event) => {
+    return true;
+  });
+
+  ipcMain.handle("crack-sf-log-file-analyser", async (event) => {
+    return true;
   });
 }
