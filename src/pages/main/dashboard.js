@@ -151,6 +151,8 @@ const Dashboard = () => {
     error: null,
   });
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
   const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
 
@@ -265,9 +267,11 @@ const Dashboard = () => {
 
   const crackSfSeoSpider = async () => {
     try {
+      setIsDownloading(true);
       const cracked = await window.electronAPI.crackSfSeoSpider();
       if (!cracked) {
         errorMessage("Failed to crack Screaming Frog SEO Spider");
+        setIsDownloading(false);
         return;
       }
 
@@ -277,16 +281,20 @@ const Dashboard = () => {
       } else {
         successMessage("Successfully cracked Screaming Frog SEO Spider");
       }
+      setIsDownloading(false);
     } catch (error) {
       errorMessage(error.message);
+      setIsDownloading(false);
     }
   }
 
   const crackSfLogAnalyser = async () => {
     try {
+      setIsDownloading(true);
       const cracked = await window.electronAPI.crackSfLogAnalyser();
       if (!cracked) {
         errorMessage("Failed to crack Screaming Frog Log File Analyser");
+        setIsDownloading(false);
         return;
       }
 
@@ -296,8 +304,10 @@ const Dashboard = () => {
       } else {
         successMessage("Successfully cracked Screaming Frog Log File Analyser");
       }
+      setIsDownloading(false);
     } catch (error) {
       errorMessage(error.message);
+      setIsDownloading(false);
     }
   }
 
@@ -897,7 +907,7 @@ const Dashboard = () => {
                             }}
                             disabled={sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
                           >
-                            {sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Crack") : ("Please install version 23.1 in the default directory")}
+                            {isDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Crack") : ("Please install version 23.1 in the default directory")}
                           </Button>
                         </Stack>
                       </Stack>
@@ -976,7 +986,7 @@ const Dashboard = () => {
                             }}
                             disabled={sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== 6.4}
                           >
-                            {sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Crack") : ("Please install version 6.4 in the default directory")}
+                            {isDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Crack") : ("Please install version 6.4 in the default directory")}
                           </Button>
                         </Stack>
                       </Stack>

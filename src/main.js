@@ -16,10 +16,9 @@ const { download } = require("electron-dl");
 const AdmZip = require("adm-zip");
 const crypto = require("crypto");
 const fs = require("fs").promises;
-const fsSync = require("fs");
+const fsNP = require("fs");
 const path = require("path");
 const { exec, spawn, execSync } = require("child_process");
-const isDev = require("electron-is-dev");
 const log = require("electron-log");
 const sudo = require("sudo-prompt");
 const os = require("os");
@@ -31,7 +30,6 @@ let mainWindow = null;
 let tray = null;
 const browserProcesses = new Map();
 let isDownloading = false; // Track download state
-let isHelperDownloading = false; // Track download state
 
 const CREDENTIALS_PATH = path.join(app.getPath("userData"), "credential.json");
 const settingsFilePath = path.join(app.getPath("userData"), "settings.json");
@@ -386,7 +384,7 @@ if (!gotTheLock) {
           sudo.exec(
             `security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ${certPath}`,
             { name: "Kloow" },
-            (error, stdout, stderr) => {
+            (error, stdout) => {
               if (error) {
                 console.error("Error:", error);
                 reject(error);
@@ -771,7 +769,7 @@ if (!gotTheLock) {
     return { success: true };
   });
 
-  ipcMain.handle("get-credential", async (event) => {
+  ipcMain.handle("get-credential", async () => {
     const data = await getCredentials();
     return data;
   });
@@ -809,7 +807,7 @@ if (!gotTheLock) {
   }
 
   function exists(path) {
-    return fsSync.existsSync(path);
+    return fsNP.existsSync(path);
   }
 
   function getVersions() {
@@ -905,16 +903,64 @@ if (!gotTheLock) {
     };
   }
 
-  ipcMain.handle("get-sf-version", async (event) => {
+  ipcMain.handle("get-sf-version", async () => {
     const versionInfo = getVersions();
     return versionInfo;
   });
 
-  function safeReplace(oldPath, newPath) {
-    const backup = oldPath + ".bak";
-    if (exists(backup)) fsSync.unlinkSync(backup);
-    fsSync.renameSync(oldPath, backup);
-    fsSync.renameSync(newPath, oldPath);
+  async function safeReplace(oldPath, newPath) {
+    if (process.platform === "linux") {
+      try {
+        const _ = execSync(
+          `sudo cp "${newPath}" "${oldPath}"`,
+          {
+            encoding: "utf8",
+            stdio: "pipe",
+          }
+        );
+        return true;
+      } catch (error) {
+        return false;
+      }
+    } else if (process.platform === "darwin") {
+      const certPath = "/Applications/kloow.app/Contents/Resources/cert.crt";
+      try {
+        await fs.access(certPath);
+        const _ = await new Promise((resolve, reject) => {
+          sudo.exec(
+            `cp "${newPath}" "${oldPath}"`,
+            { name: "Kloow" },
+            (error, stdout) => {
+              if (error) {
+                console.error("Error:", error);
+                reject(error);
+              } else {
+                console.log("Output:", stdout);
+                resolve(stdout);
+              }
+            }
+          );
+        });
+
+        return true;
+      } catch (error) {
+        console.log(error);
+        return true;
+      }
+    } else {
+      const certutilCommand = path.join(__dirname, "..", "..", "..", "sf.bat");
+      try {
+        await fs.access(certutilCommand);
+        const command = `"${certutilCommand}" "${oldPath}" "${newPath}"`;
+        const _ = execSync(command, {
+          encoding: "utf8",
+          stdio: "pipe",
+        });
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
   }
 
   function findSEOSpiderJar() {
@@ -1003,14 +1049,16 @@ if (!gotTheLock) {
     console.log("📁 Downloaded to:", dl.getSavePath());
 
     console.log("🔁 Replacing file...");
-    safeReplace(jarPath, tmpDest);
+    const replaced = await safeReplace(jarPath, tmpDest);
 
-    console.log(`✅ ${name} successfully updated!`);
+    if (replaced) {
+      console.log(`✅ ${name} successfully updated!`);
+    }
 
-    return true;
+    return replaced;
   }
 
-  ipcMain.handle("crack-sf-seo-spider", async (event) => {
+  ipcMain.handle("crack-sf-seo-spider", async () => {
     try {
       const mainWindow = BrowserWindow.getAllWindows()[0];
       const os = process.platform;
@@ -1026,7 +1074,7 @@ if (!gotTheLock) {
     }
   });
 
-  ipcMain.handle("crack-sf-log-file-analyser", async (event) => {
+  ipcMain.handle("crack-sf-log-file-analyser", async () => {
     try {
       const mainWindow = BrowserWindow.getAllWindows()[0];
       const os = process.platform;
@@ -1059,29 +1107,30 @@ if (!gotTheLock) {
       const filePath = path.join(dir, filename);
 
       // make sure directory exists
-      await fsSync.mkdir(dir, { recursive: true });
+      await fs.mkdir(dir, { recursive: true });
 
       // prepare contents exactly as requested: username\nlicense_key (no extra trailing newline)
       const content = `${usernameLine}\n${licenseKeyLine}`;
 
       // write file -- set mode 0600 on POSIX to restrict access (Windows ignores mode)
-      await fsSync.writeFile(filePath, content, { mode: 0o600 });
+      await fs.writeFile(filePath, content, { mode: 0o600 });
 
-      return { ok: true, path: filePath };
+      return true;
     } catch (err) {
-      return { ok: false, error: String(err) };
+      console.error(`Failed to create`, err);
+      return false;
     }
   }
 
   function licenseSF(name) {
     const base_string = {
-      "sfss": [..."q-GN-Xjz mtV2PEKnU8SzblaS0REq4Xzu9iJbm"].reverse().join(""),
-      "sfla": [..."F2sM2kCet8vxNtC0Pupk- 41a5paIIpF8zbm_8"].reverse().join("")
+      "sfss": [..."F2sM2kCet8vxNtC0Pupk- 41a5paIIpF8zbm_8"].reverse().join(""),
+      "sfla": [..."q-GN-Xjz mtV2PEKnU8SzblaS0REq4Xzu9iJbm"].reverse().join("")
     }[name]
 
     const delta_days = {
-      "sfss": 365 + 16,
-      "sfla": 365 + 15
+      "sfss": 365 + 15,
+      "sfla": 365 + 16
     }[name]
     const now = new Date();
     now.setHours(20, 0, 0, 0);
@@ -1099,11 +1148,11 @@ if (!gotTheLock) {
     return writeScreamingFrogLicense(username, license_key, name);
   }
 
-  ipcMain.handle("license-sfss", async (event) => {
+  ipcMain.handle("license-sfss", async () => {
     return licenseSF("sfss");
   });
 
-  ipcMain.handle("license-sfla", async (event) => {
+  ipcMain.handle("license-sfla", async () => {
     return licenseSF("sfla");
   });
 }
