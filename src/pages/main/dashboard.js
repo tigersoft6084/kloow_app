@@ -354,7 +354,7 @@ const Dashboard = () => {
       case Tabs.Recents:
         return "Applications you've launched recently.";
       case Tabs["Screaming Frog"]:
-        return "The Screaming Frog SEO Spider";
+        return "The Screaming Frog SEO Spider and Log File Analyser";
       default:
         return "Pre-loaded, ready-to-use marketing tools for faster campaigns.";
     }
@@ -440,6 +440,8 @@ const Dashboard = () => {
             <IconButton
               onClick={async () => {
                 setLoading(true);
+                const versions = await window.electronAPI.getSFVersions();
+                setSfInfo(versions);
                 await Promise.all(
                   appList.map(async (app) => {
                     if (runningStatus[app.id]) {
@@ -899,13 +901,13 @@ const Dashboard = () => {
                             fullWidth
                             disableElevation
                             variant="contained"
-                            onClick={sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? () => crackSfSeoSpider() : () => { }}
+                            onClick={isDownloading ? () => { } : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? () => crackSfSeoSpider() : () => { }}
                             sx={{
                               fontWeight: "bold",
                               borderRadius: "8px",
                               backgroundColor: "#3A71E1",
                             }}
-                            disabled={sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
+                            disabled={isDownloading || sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
                           >
                             {isDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Crack") : ("Please install version 23.1 in the default directory")}
                           </Button>
@@ -978,13 +980,13 @@ const Dashboard = () => {
                             fullWidth
                             disableElevation
                             variant="contained"
-                            onClick={sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? () => crackSfLogAnalyser() : () => { }}
+                            onClick={isDownloading ? () => { } : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? () => crackSfLogAnalyser() : () => { }}
                             sx={{
                               fontWeight: "bold",
                               borderRadius: "8px",
                               backgroundColor: "#3A71E1",
                             }}
-                            disabled={sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== 6.4}
+                            disabled={isDownloading || sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== 6.4}
                           >
                             {isDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Crack") : ("Please install version 6.4 in the default directory")}
                           </Button>
