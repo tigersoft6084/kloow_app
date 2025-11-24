@@ -16,12 +16,14 @@ const { download } = require("electron-dl");
 const AdmZip = require("adm-zip");
 const crypto = require("crypto");
 const fs = require("fs").promises;
+const fsSync = require("fs");
 const path = require("path");
 const { exec, spawn, execSync } = require("child_process");
 const isDev = require("electron-is-dev");
 const log = require("electron-log");
 const sudo = require("sudo-prompt");
 const os = require("os");
+const { SHA1 } = require("crypto-js");
 
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
@@ -807,7 +809,7 @@ if (!gotTheLock) {
   }
 
   function exists(path) {
-    return fs.existsSync(path);
+    return fsSync.existsSync(path);
   }
 
   function getVersions() {
@@ -908,11 +910,200 @@ if (!gotTheLock) {
     return versionInfo;
   });
 
-  ipcMain.handle("crack-sf-seo-spider", async (event) => {
+  function safeReplace(oldPath, newPath) {
+    const backup = oldPath + ".bak";
+    if (exists(backup)) fsSync.unlinkSync(backup);
+    fsSync.renameSync(oldPath, backup);
+    fsSync.renameSync(newPath, oldPath);
+  }
+
+  function findSEOSpiderJar() {
+    const p = process.platform;
+
+    if (p === "win32") {
+      const dirs = [
+        "C:\\Program Files\\Screaming Frog SEO Spider",
+        "C:\\Program Files (x86)\\Screaming Frog SEO Spider"
+      ];
+      for (const d of dirs) {
+        const jar = path.join(d, "ScreamingFrogSEOSpider.jar");
+        if (exists(jar)) return jar;
+      }
+    }
+
+    if (p === "darwin") {
+      const jar = "/Applications/Screaming Frog SEO Spider.app/Contents/Java/ScreamingFrogSEOSpider.jar";
+      if (exists(jar)) return jar;
+    }
+
+    if (p === "linux") {
+      const candidates = [
+        "/usr/share/screamingfrogseospider/ScreamingFrogSEOSpider.jar",
+        "/opt/ScreamingFrogSEOSpider/ScreamingFrogSEOSpider.jar"
+      ];
+      for (const jar of candidates) if (exists(jar)) return jar;
+    }
+
+    return null;
+  }
+
+  function findLogAnalyserJar() {
+    const p = process.platform;
+
+    if (p === "win32") {
+      const dirs = [
+        "C:\\Program Files\\Screaming Frog Log File Analyser",
+        "C:\\Program Files (x86)\\Screaming Frog Log File Analyser"
+      ];
+      for (const d of dirs) {
+        const jar = path.join(d, "ScreamingFrogLogFileAnalyser.jar");
+        if (exists(jar)) return jar;
+      }
+    }
+
+    if (p === "darwin") {
+      const jar = "/Applications/Screaming Frog Log File Analyser.app/Contents/Java/ScreamingFrogLogFileAnalyser.jar";
+      if (exists(jar)) return jar;
+    }
+
+    if (p === "linux") {
+      const candidates = [
+        "/usr/share/screamingfroglogfileanalyser/ScreamingFrogLogFileAnalyser.jar",
+        "/opt/ScreamingFrogLogFileAnalyser/ScreamingFrogLogFileAnalyser.jar"
+      ];
+      for (const jar of candidates) if (exists(jar)) return jar;
+    }
+
+    return null;
+  }
+
+  // ---------------- MAIN UPDATE FUNCTION ----------------
+  async function replaceJar(mainWindow, name, findJarFn, downloadURL) {
+    console.log(`\n🔍 Locating ${name}...`);
+
+    const jarPath = findJarFn();
+    if (!jarPath) {
+      console.log(`❌ ${name} not installed.`);
+      return false;
+    }
+
+    console.log("📍 JAR found at:", jarPath);
+
+    // download to temporary file
+    const tmpDest = path.join(os.tmpdir(), `${name}-update.jar`);
+
+    console.log("⬇️ Downloading updated JAR from:", downloadURL);
+
+    const dl = await download(mainWindow, downloadURL, {
+      directory: os.tmpdir(),
+      filename: `${name}-update.jar`,
+      overwrite: true
+    });
+
+    console.log("📁 Downloaded to:", dl.getSavePath());
+
+    console.log("🔁 Replacing file...");
+    safeReplace(jarPath, tmpDest);
+
+    console.log(`✅ ${name} successfully updated!`);
+
     return true;
+  }
+
+  ipcMain.handle("crack-sf-seo-spider", async (event) => {
+    try {
+      const mainWindow = BrowserWindow.getAllWindows()[0];
+      const os = process.platform;
+      const downloadURL = {
+        "win32": "https://www.kloow.com/download-sfss?os=windows",
+        "linux": "https://www.kloow.com/download-sfss?os=linux",
+        "darwin": "https://www.kloow.com/download-sfss?os=mac"
+      }[os];
+      return await replaceJar(mainWindow, "ScreamingFrogSEOSpider", findSEOSpiderJar, downloadURL);
+    } catch (error) {
+      console.log("Failed to download SEO Spider crack file:", error);
+      return false;
+    }
   });
 
   ipcMain.handle("crack-sf-log-file-analyser", async (event) => {
-    return true;
+    try {
+      const mainWindow = BrowserWindow.getAllWindows()[0];
+      const os = process.platform;
+      const downloadURL = {
+        "win32": "https://www.kloow.com/download-sfla?os=windows",
+        "linux": "https://www.kloow.com/download-sfla?os=linux",
+        "darwin": "https://www.kloow.com/download-sfla?os=mac"
+      }[os];
+      return await replaceJar(mainWindow, "ScreamingFrogLogFileAnalyser", findLogAnalyserJar, downloadURL);
+    } catch (error) {
+      console.log("Failed to download Log File Analyser crack file:", error);
+      return false;
+    }
+  });
+
+  async function writeScreamingFrogLicense(usernameLine, licenseKeyLine, name) {
+    try {
+      // prefer app.getPath('home') (Electron aware) but fallback to os.homedir()
+      const home = (app && typeof app.getPath === 'function') ? app.getPath('home') : os.homedir();
+
+      // directory name required by user
+      const sfDirName = {
+        "sfss": ".ScreamingFrogSEOSpider",
+        "sfla": ".ScreamingFrogLogFileAnalyser"
+      }[name];
+      const dir = path.join(home, sfDirName);
+
+      // choose filename (you can change to e.g. 'license' if needed)
+      const filename = 'licence.txt';
+      const filePath = path.join(dir, filename);
+
+      // make sure directory exists
+      await fsSync.mkdir(dir, { recursive: true });
+
+      // prepare contents exactly as requested: username\nlicense_key (no extra trailing newline)
+      const content = `${usernameLine}\n${licenseKeyLine}`;
+
+      // write file -- set mode 0600 on POSIX to restrict access (Windows ignores mode)
+      await fsSync.writeFile(filePath, content, { mode: 0o600 });
+
+      return { ok: true, path: filePath };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  }
+
+  function licenseSF(name) {
+    const base_string = {
+      "sfss": [..."q-GN-Xjz mtV2PEKnU8SzblaS0REq4Xzu9iJbm"].reverse().join(""),
+      "sfla": [..."F2sM2kCet8vxNtC0Pupk- 41a5paIIpF8zbm_8"].reverse().join("")
+    }[name]
+
+    const delta_days = {
+      "sfss": 365 + 16,
+      "sfla": 365 + 15
+    }[name]
+    const now = new Date();
+    now.setHours(20, 0, 0, 0);
+
+    const future = new Date(now.getTime() + delta_days * 24 * 60 * 60 * 1000);
+    const timestamp = Math.floor(future.getTime() / 1000);
+
+    const username = {
+      "sfss": "kloow_seo_spider",
+      "sfla": "kloow_log_analyser"
+    }[name]
+
+    const sha1 = SHA1(`${username}${timestamp}${base_string}`).toString();
+    const license_key = `${sha1.substring(0, 10).toUpperCase()}-${timestamp}-${sha1.slice(-10).toUpperCase()}`;
+    return writeScreamingFrogLicense(username, license_key, name);
+  }
+
+  ipcMain.handle("license-sfss", async (event) => {
+    return licenseSF("sfss");
+  });
+
+  ipcMain.handle("license-sfla", async (event) => {
+    return licenseSF("sfla");
   });
 }

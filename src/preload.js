@@ -24,4 +24,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getSFVersions: () => ipcRenderer.invoke("get-sf-version"),
   crackSfSeoSpider: () => ipcRenderer.invoke("crack-sf-seo-spider"),
   crackSfLogAnalyser: () => ipcRenderer.invoke("crack-sf-log-file-analyser"),
+  licenseSFSS: () => ipcRenderer.invoke("license-sfss"),
+  licenseSFLA: () => ipcRenderer.invoke("license-sfla"),
 });
