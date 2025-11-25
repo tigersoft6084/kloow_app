@@ -110,6 +110,7 @@ const listItemIconSx = { color: "white", minWidth: 32 };
 
 const Dashboard = () => {
   const {
+    frogStatus,
     getAppList,
     appList,
     searchPattern,
@@ -144,6 +145,7 @@ const Dashboard = () => {
 
   const [openSetting, setOpenSetting] = useState(false);
 
+  const [sf, setSf] = useState(false);
   const [sfInfo, setSfInfo] = useState({
     os: "",
     seoSpider: null,
@@ -186,6 +188,12 @@ const Dashboard = () => {
       setStartup(autoLaunch);
     };
     getAutoLaunch();
+  }, []);
+
+  useEffect(() => {
+    frogStatus().then((status) => {
+      setSf(status);
+    });
   }, []);
 
   useEffect(() => {
@@ -442,6 +450,9 @@ const Dashboard = () => {
                 setLoading(true);
                 const versions = await window.electronAPI.getSFVersions();
                 setSfInfo(versions);
+                frogStatus().then((status) => {
+                  setSf(status);
+                });
                 await Promise.all(
                   appList.map(async (app) => {
                     if (runningStatus[app.id]) {
@@ -897,20 +908,41 @@ const Dashboard = () => {
                             </Typography>
                           </Tooltip>
                           <Box sx={{ height: 4 }}></Box>
-                          <Button
-                            fullWidth
-                            disableElevation
-                            variant="contained"
-                            onClick={isDownloading ? () => { } : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? () => crackSfSeoSpider() : () => { }}
-                            sx={{
-                              fontWeight: "bold",
-                              borderRadius: "8px",
-                              backgroundColor: "#3A71E1",
-                            }}
-                            disabled={isDownloading || sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
-                          >
-                            {isDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Crack") : ("Please install version 23.1 in the default directory")}
-                          </Button>
+                          {sf ? (
+                            <Button
+                              fullWidth
+                              disableElevation
+                              variant="contained"
+                              onClick={isDownloading ? () => { } : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? () => crackSfSeoSpider() : () => { }}
+                              sx={{
+                                fontWeight: "bold",
+                                borderRadius: "8px",
+                                backgroundColor: "#3A71E1",
+                              }}
+                              disabled={isDownloading || sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
+                            >
+                              {isDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Crack") : ("Please install version 23.1 in the default directory")}
+                            </Button>
+                          ) : (
+                            <Button
+                              fullWidth
+                              disableElevation
+                              variant="contained"
+                              onClick={() =>
+                                window.electronAPI.openExternal(
+                                  `https://${app.domain}`
+                                )
+                              }
+                              sx={{
+                                fontWeight: "bold",
+                                borderRadius: "8px",
+                                backgroundColor: "#c74ad3",
+                              }}
+                            >
+                              <UpgradeOutlinedIcon />
+                              UPGRADE
+                            </Button>
+                          )}
                         </Stack>
                       </Stack>
                     </Grid>

@@ -25,6 +25,16 @@ export const MainProvider = ({ children }) => {
     }
   };
 
+  const frogStatus = async () => {
+    try {
+      const response = await axiosServices.get("/frog_status");
+      console.log(response);
+      return response.data.frog;
+    } catch (error) {
+      return false;
+    }
+  }
+
   const setSearchPattern = (searchPattern) => {
     dispatch({
       type: SEARCH_APPLICATION,
@@ -66,6 +76,7 @@ export const MainProvider = ({ children }) => {
     <MainContext.Provider
       value={{
         ...state,
+        frogStatus,
         getAppList,
         setSearchPattern,
         setLog,
