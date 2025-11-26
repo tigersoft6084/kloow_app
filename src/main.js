@@ -911,13 +911,22 @@ if (!gotTheLock) {
   async function safeReplace(oldPath, newPath) {
     if (process.platform === "linux") {
       try {
-        const _ = execSync(
-          `sudo cp "${newPath}" "${oldPath}"`,
-          {
-            encoding: "utf8",
-            stdio: "pipe",
-          }
-        );
+        const _ = await new Promise((resolve, reject) => {
+          sudo.exec(
+            `cp "${newPath}" "${oldPath}"`,
+            { name: "Kloow" },
+            (error, stdout) => {
+              if (error) {
+                console.error("Error:", error);
+                reject(error);
+              } else {
+                console.log("Output:", stdout);
+                resolve(stdout);
+              }
+            }
+          );
+        });
+
         return true;
       } catch (error) {
         return false;
@@ -1098,7 +1107,7 @@ if (!gotTheLock) {
       // directory name required by user
       const sfDirName = {
         "sfss": ".ScreamingFrogSEOSpider",
-        "sfla": ".ScreamingFrogLogFileAnalyser"
+        "sfla": ".ScreamingFrogLogfileAnalyser"
       }[name];
       const dir = path.join(home, sfDirName);
 

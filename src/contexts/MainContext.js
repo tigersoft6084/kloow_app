@@ -28,7 +28,6 @@ export const MainProvider = ({ children }) => {
   const frogStatus = async () => {
     try {
       const response = await axiosServices.get("/frog_status");
-      console.log(response);
       return response.data.frog;
     } catch (error) {
       return false;
