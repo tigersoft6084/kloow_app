@@ -153,7 +153,8 @@ const Dashboard = () => {
     error: null,
   });
 
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSfssDownloading, setIsSfssDownloading] = useState(false);
+  const [isSflaDownloading, setIsSflaDownloading] = useState(false);
 
   const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
@@ -275,11 +276,11 @@ const Dashboard = () => {
 
   const crackSfSeoSpider = async () => {
     try {
-      setIsDownloading(true);
+      setIsSfssDownloading(true);
       const cracked = await window.electronAPI.crackSfSeoSpider();
       if (!cracked) {
         errorMessage("Failed to crack Screaming Frog SEO Spider");
-        setIsDownloading(false);
+        setIsSfssDownloading(false);
         return;
       }
 
@@ -289,20 +290,20 @@ const Dashboard = () => {
       } else {
         successMessage("Successfully cracked Screaming Frog SEO Spider");
       }
-      setIsDownloading(false);
+      setIsSfssDownloading(false);
     } catch (error) {
       errorMessage(error.message);
-      setIsDownloading(false);
+      setIsSfssDownloading(false);
     }
   }
 
   const crackSfLogAnalyser = async () => {
     try {
-      setIsDownloading(true);
+      setIsSflaDownloading(true);
       const cracked = await window.electronAPI.crackSfLogAnalyser();
       if (!cracked) {
         errorMessage("Failed to crack Screaming Frog Log File Analyser");
-        setIsDownloading(false);
+        setIsSflaDownloading(false);
         return;
       }
 
@@ -312,10 +313,10 @@ const Dashboard = () => {
       } else {
         successMessage("Successfully cracked Screaming Frog Log File Analyser");
       }
-      setIsDownloading(false);
+      setIsSflaDownloading(false);
     } catch (error) {
       errorMessage(error.message);
-      setIsDownloading(false);
+      setIsSflaDownloading(false);
     }
   }
 
@@ -445,58 +446,64 @@ const Dashboard = () => {
             }}
           />
           <Stack direction="row" alignItems="center" spacing={1.5}>
-            <IconButton
-              onClick={async () => {
-                setLoading(true);
-                const versions = await window.electronAPI.getSFVersions();
-                setSfInfo(versions);
-                frogStatus().then((status) => {
-                  setSf(status);
-                });
-                await Promise.all(
-                  appList.map(async (app) => {
-                    if (runningStatus[app.id]) {
-                      await window.electronAPI.stopBrowser(app.id);
-                    }
-                  })
-                );
-                getAppList().then((appList) => {
-                  const initialStatus = appList.reduce((acc, app) => {
-                    acc[app.id] = false;
-                    return acc;
-                  }, {});
-                  setRunningStatus(initialStatus);
-                  setLoading(false);
-                });
-              }}
-              sx={{ color: "white", p: 0 }}
-            >
-              <img
-                src={RefreshIcon}
-                alt="refresh"
-                style={{ width: 34, height: 34 }}
-              />
-            </IconButton>
-            <IconButton
-              onClick={handleMenuOpen}
-              aria-controls={menuOpen ? "profile-menu" : undefined}
-              aria-haspopup="true"
-              aria-expanded={menuOpen ? "true" : undefined}
-              sx={{ color: "white", p: 0 }}
-            >
-              <img
-                src={ProfileIcon}
-                alt="profile"
-                style={{ width: 34, height: 34 }}
-              />
-            </IconButton>
-            <IconButton onClick={logout} sx={{ color: "white", p: 0 }}>
-              <img
-                src={LogoutIcon}
-                alt="logout"
-                style={{ width: 34, height: 34 }}
-              />
-            </IconButton>
+            <Tooltip title="Reload Apps">
+              <IconButton
+                onClick={async () => {
+                  setLoading(true);
+                  const versions = await window.electronAPI.getSFVersions();
+                  setSfInfo(versions);
+                  frogStatus().then((status) => {
+                    setSf(status);
+                  });
+                  await Promise.all(
+                    appList.map(async (app) => {
+                      if (runningStatus[app.id]) {
+                        await window.electronAPI.stopBrowser(app.id);
+                      }
+                    })
+                  );
+                  getAppList().then((appList) => {
+                    const initialStatus = appList.reduce((acc, app) => {
+                      acc[app.id] = false;
+                      return acc;
+                    }, {});
+                    setRunningStatus(initialStatus);
+                    setLoading(false);
+                  });
+                }}
+                sx={{ color: "white", p: 0 }}
+              >
+                <img
+                  src={RefreshIcon}
+                  alt="refresh"
+                  style={{ width: 34, height: 34 }}
+                />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Account Settings">
+              <IconButton
+                onClick={handleMenuOpen}
+                aria-controls={menuOpen ? "profile-menu" : undefined}
+                aria-haspopup="true"
+                aria-expanded={menuOpen ? "true" : undefined}
+                sx={{ color: "white", p: 0 }}
+              >
+                <img
+                  src={ProfileIcon}
+                  alt="profile"
+                  style={{ width: 34, height: 34 }}
+                />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Log Out">
+              <IconButton onClick={logout} sx={{ color: "white", p: 0 }}>
+                <img
+                  src={LogoutIcon}
+                  alt="logout"
+                  style={{ width: 34, height: 34 }}
+                />
+              </IconButton>
+            </Tooltip>
           </Stack>
           <Menu
             id="profile-menu"
@@ -913,15 +920,15 @@ const Dashboard = () => {
                               fullWidth
                               disableElevation
                               variant="contained"
-                              onClick={isDownloading ? () => { } : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? () => crackSfSeoSpider() : () => { }}
+                              onClick={isSfssDownloading || isSflaDownloading ? () => { } : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? () => crackSfSeoSpider() : () => { }}
                               sx={{
                                 fontWeight: "bold",
                                 borderRadius: "8px",
                                 backgroundColor: "#3A71E1",
                               }}
-                              disabled={isDownloading || sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
+                              disabled={isSfssDownloading || isSflaDownloading || sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
                             >
-                              {isDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Crack") : ("Please install version 23.1 in the default directory")}
+                              {isSfssDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Crack") : ("Please install version 23.1 in the default directory")}
                             </Button>
                           ) : (
                             <Button
@@ -1012,15 +1019,15 @@ const Dashboard = () => {
                             fullWidth
                             disableElevation
                             variant="contained"
-                            onClick={isDownloading ? () => { } : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? () => crackSfLogAnalyser() : () => { }}
+                            onClick={isSflaDownloading || isSfssDownloading ? () => { } : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? () => crackSfLogAnalyser() : () => { }}
                             sx={{
                               fontWeight: "bold",
                               borderRadius: "8px",
                               backgroundColor: "#3A71E1",
                             }}
-                            disabled={isDownloading || sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== 6.4}
+                            disabled={isSflaDownloading || isSfssDownloading || sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== 6.4}
                           >
-                            {isDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Crack") : ("Please install version 6.4 in the default directory")}
+                            {isSflaDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Crack") : ("Please install version 6.4 in the default directory")}
                           </Button>
                         </Stack>
                       </Stack>
