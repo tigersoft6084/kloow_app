@@ -12,7 +12,8 @@ MAC_ZIP_FILE_PATH = "./browser_mac.tar.xz"
 # File paths for each OS
 SFSS_FILES = {
     "windows": "./ScreamingFrogSEOSpider_win.jar",
-    "mac": "./ScreamingFrogSEOSpider_mac.jar",
+    "mac_intel": "./ScreamingFrogSEOSpider_mac_intel.jar",
+    "mac_arm": "./ScreamingFrogSEOSpider_mac_arm.jar",
     "linux": "./ScreamingFrogSEOSpider_linux.jar",
 }
 
@@ -20,7 +21,8 @@ SFSS_FILES = {
 # File paths for each OS
 SFLA_FILES = {
     "windows": "./ScreamingFrogLogFileAnalyser_win.jar",
-    "mac": "./ScreamingFrogLogFileAnalyser_mac.jar",
+    "mac_intel": "./ScreamingFrogLogFileAnalyser_mac_intel.jar",
+    "mac_arm": "./ScreamingFrogLogFileAnalyser_mac_arm.jar",
     "linux": "./ScreamingFrogLogFileAnalyser_linux.jar",
 }
 
