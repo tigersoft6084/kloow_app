@@ -20,7 +20,11 @@ module.exports = {
     win32metadata: {
       CompanyName: packageJson.author.name,
     },
-    extraResource: ["./cert.crt", "./scripts/run.bat", "./scripts/sf.bat"],
+    extraResource: [
+      "./cert.crt",
+      "./scripts/run.bat",
+      // "./scripts/sf.bat"
+    ],
   },
   rebuildConfig: {},
   makers: [

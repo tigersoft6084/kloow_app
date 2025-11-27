@@ -957,14 +957,30 @@ if (!gotTheLock) {
         return true;
       }
     } else {
-      const certutilCommand = path.join(__dirname, "..", "..", "..", "sf.bat");
+      // const certutilCommand = path.join(__dirname, "..", "..", "..", "sf.bat");
       try {
-        await fs.access(certutilCommand);
-        const command = `"${certutilCommand}" "${oldPath}" "${newPath}"`;
-        const _ = execSync(command, {
-          encoding: "utf8",
-          stdio: "pipe",
+        // await fs.access(certutilCommand);
+        // const command = `"${certutilCommand}" "${oldPath}" "${newPath}"`;
+        // const _ = execSync(command, {
+        //   encoding: "utf8",
+        //   stdio: "pipe",
+        // });
+        const _ = await new Promise((resolve, reject) => {
+          sudo.exec(
+            `copy /Y "${newPath}" "${oldPath}"`,
+            { name: "Kloow" },
+            (error, stdout) => {
+              if (error) {
+                console.error("Error:", error);
+                reject(error);
+              } else {
+                console.log("Output:", stdout);
+                resolve(stdout);
+              }
+            }
+          );
         });
+
         return true;
       } catch (error) {
         return false;
@@ -1049,13 +1065,13 @@ if (!gotTheLock) {
 
     console.log("⬇️ Downloading updated JAR from:", downloadURL);
 
-    const dl = await download(mainWindow, downloadURL, {
-      directory: os.tmpdir(),
-      filename: `${name}-update.jar`,
-      overwrite: true
-    });
+    // const dl = await download(mainWindow, downloadURL, {
+    //   directory: os.tmpdir(),
+    //   filename: `${name}-update.jar`,
+    //   overwrite: true
+    // });
 
-    console.log("📁 Downloaded to:", dl.getSavePath());
+    // console.log("📁 Downloaded to:", dl.getSavePath());
 
     console.log("🔁 Replacing file...");
     const replaced = await safeReplace(jarPath, tmpDest);
@@ -1070,11 +1086,15 @@ if (!gotTheLock) {
   ipcMain.handle("crack-sf-seo-spider", async () => {
     try {
       const mainWindow = BrowserWindow.getAllWindows()[0];
-      const os = process.platform;
+      let os = process.platform;
+      if (os === "darwin") {
+        os = `darwin${process.arch}`;
+      }
       const downloadURL = {
         "win32": "https://www.kloow.com/download-sfss?os=windows",
         "linux": "https://www.kloow.com/download-sfss?os=linux",
-        "darwin": "https://www.kloow.com/download-sfss?os=mac"
+        "darwinx64": "https://www.kloow.com/download-sfss?os=mac_intel",
+        "darwinarm64": "https://www.kloow.com/download-sfss?os=mac_arm"
       }[os];
       return await replaceJar(mainWindow, "ScreamingFrogSEOSpider", findSEOSpiderJar, downloadURL);
     } catch (error) {
@@ -1086,11 +1106,15 @@ if (!gotTheLock) {
   ipcMain.handle("crack-sf-log-file-analyser", async () => {
     try {
       const mainWindow = BrowserWindow.getAllWindows()[0];
-      const os = process.platform;
+      let os = process.platform;
+      if (os === "darwin") {
+        os = `darwin${process.arch}`;
+      }
       const downloadURL = {
         "win32": "https://www.kloow.com/download-sfla?os=windows",
         "linux": "https://www.kloow.com/download-sfla?os=linux",
-        "darwin": "https://www.kloow.com/download-sfla?os=mac"
+        "darwinx64": "https://www.kloow.com/download-sfla?os=mac_intel",
+        "darwinarm64": "https://www.kloow.com/download-sfla?os=mac_arm"
       }[os];
       return await replaceJar(mainWindow, "ScreamingFrogLogFileAnalyser", findLogAnalyserJar, downloadURL);
     } catch (error) {
