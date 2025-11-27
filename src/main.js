@@ -909,52 +909,56 @@ if (!gotTheLock) {
   });
 
   async function safeReplace(oldPath, newPath) {
-    if (process.platform === "linux") {
+    // Use sudo-based copy on POSIX systems, with extra steps on macOS to clear flags/xattrs
+    if (process.platform === "linux" || process.platform === "darwin") {
+      // Build a robust command sequence:
+      // - clear immutable flag (chflags nouchg) if present
+      // - clear extended attributes (xattr -c) to avoid quarantine issues on macOS
+      // - copy the file, force overwrite
+      // - ensure reasonable permissions
+      const cmds = [
+        `chflags -R nouchg "${oldPath}" 2>/dev/null || true`,
+        `xattr -c "${oldPath}" 2>/dev/null || true`,
+        `xattr -c "${newPath}" 2>/dev/null || true`,
+        `cp -f "${newPath}" "${oldPath}"`,
+        `chmod 644 "${oldPath}" 2>/dev/null || true`
+      ];
+      const command = cmds.join(" && ");
+      console.log(command);
       try {
-        const _ = await new Promise((resolve, reject) => {
-          sudo.exec(
-            `cp "${newPath}" "${oldPath}"`,
-            { name: "Kloow" },
-            (error, stdout) => {
-              if (error) {
-                console.error("Error:", error);
-                reject(error);
-              } else {
-                console.log("Output:", stdout);
-                resolve(stdout);
-              }
+        await new Promise((resolve, reject) => {
+          sudo.exec(command, { name: "Kloow" }, (error, stdout) => {
+            if (error) {
+              console.error("safeReplace error:", error);
+              reject(error);
+            } else {
+              resolve(stdout);
             }
-          );
+          });
         });
 
         return true;
       } catch (error) {
-        return false;
-      }
-    } else if (process.platform === "darwin") {
-      const certPath = "/Applications/kloow.app/Contents/Resources/cert.crt";
-      try {
-        await fs.access(certPath);
-        const _ = await new Promise((resolve, reject) => {
-          sudo.exec(
-            `cp "${newPath}" "${oldPath}"`,
-            { name: "Kloow" },
-            (error, stdout) => {
-              if (error) {
-                console.error("Error:", error);
-                reject(error);
+        console.error("safeReplace primary copy failed, attempting fallback:", error);
+
+        // Fallback: try using 'install' which may behave better for atomic replace
+        try {
+          const fallbackCmd = `install -m 644 "${newPath}" "${oldPath}"`;
+          await new Promise((resolve, reject) => {
+            sudo.exec(fallbackCmd, { name: "Kloow" }, (err, stdout) => {
+              if (err) {
+                console.error("safeReplace fallback error:", err);
+                reject(err);
               } else {
-                console.log("Output:", stdout);
                 resolve(stdout);
               }
-            }
-          );
-        });
-
-        return true;
-      } catch (error) {
-        console.log(error);
-        return true;
+            });
+          });
+          return true;
+        } catch (fallbackErr) {
+          console.error("safeReplace fallback also failed:", fallbackErr);
+          return false;
+        }
       }
     } else {
       const certutilCommand = path.join(__dirname, "..", "..", "..", "sf.bat");
@@ -967,6 +971,7 @@ if (!gotTheLock) {
         });
         return true;
       } catch (error) {
+        console.error("safeReplace windows/batch failed:", error);
         return false;
       }
     }
