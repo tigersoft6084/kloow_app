@@ -360,6 +360,29 @@ if (!gotTheLock) {
     }
   });
 
+  ipcMain.handle("check-cert-trusted", () => {
+    if (process.platform === "darwin") {
+      console.log("Checking if Kloow Root CA is trusted...");
+      try {
+        const checkTrustStatus = execSync(
+          `security verify-cert -c /Applications/Kloow.app/Contents/Resources/cert.crt`,
+          { encoding: "utf8", stdio: "pipe" }
+        );
+        console.log("Trust status output:", checkTrustStatus);
+        if (!checkTrustStatus || checkTrustStatus.indexOf("certificate verification successful") === -1) {
+          console.log("Certificate is not trusted.");
+          return false;
+        }
+      } catch (err) {
+        console.error("Error checking trust status:", err);
+        // ignore dialog errors and continue to certificate check
+        return false;
+      }
+    }
+    console.log("Certificate is trusted.");
+    return true;
+  });
+
   ipcMain.handle("install-cert", async () => {
     if (process.platform === "linux") {
       const certPath = "/usr/lib/kloow/resources/cert.crt";
@@ -418,6 +441,10 @@ if (!gotTheLock) {
     }
   });
 
+  ipcMain.handle("mark-cert-trusted", async () => {
+    execSync('open -a "Keychain Access"', { stdio: "ignore" });
+    return { status: true, message: "Keychain Access opened." };
+  });
   ipcMain.on("check-for-updates", () => {
     if (process.argv.includes("--squirrel-firstrun")) {
       log.info("First run after install, skipping update check.");
@@ -434,6 +461,11 @@ if (!gotTheLock) {
   });
 
   ipcMain.on("restart-and-update", () => autoUpdater.quitAndInstall());
+
+  ipcMain.on("close-app", () => {
+    app.isQuitting = true;
+    app.quit();
+  });
 
   ipcMain.on("set-title", (event, title) =>
     mainWindow.setTitle(`${app.getName()} ${app.getVersion()} - ${title}`)
