@@ -40,12 +40,21 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const [openCert, setOpenCert] = useState(false);
+  const [openTrusted, setOpenTrusted] = useState(false);
+  const [trustedStatus, setTrustedStatus] = useState(false);
 
   useEffect(() => {
     window.electronAPI.checkCert().then((result) => {
       if (!result) setOpenCert(true);
+      else {
+        console.log("Checking if certificate is trusted...");
+        window.electronAPI.checkCertTrusted().then((trusted) => {
+          console.log("Certificate trusted:", trusted);
+          if (!trusted) setOpenTrusted(true);
+        });
+      }
     });
-  }, []);
+  }, [openCert]);
 
   useEffect(() => {
     window.electronAPI.setTitle("Login");
@@ -56,6 +65,20 @@ const Login = () => {
       setOpenCert(false);
       if (!result.status) errorMessage(result.message);
     });
+  };
+
+  const handleMarkTrusted = () => {
+    if (!trustedStatus) {
+      window.electronAPI.markCertTrusted().then((result) => {
+        setTrustedStatus(true);
+        // close the app to let user restart and apply the trust settings
+        if (!result.status) errorMessage(result.message);
+      });
+    }
+    else {
+      window.electronAPI.closeApp();
+    }
+
   };
 
   const [credential, setCredential] = useState({ log: "", pwd: "" });
@@ -275,10 +298,10 @@ const Login = () => {
             <Box>
               <Stack spacing={3} alignItems={"center"}>
                 <Typography variant="h6" color="error">
-                  Certificate Required
+                  Certificate Installation
                 </Typography>
                 <Typography variant="body1" color="white" textAlign="center">
-                  You must install the certificate to use the proxy service.
+                  Please install our certificate in order to use our service.
                 </Typography>
               </Stack>
             </Box>
@@ -296,6 +319,60 @@ const Login = () => {
                 sx={{ minWidth: 160 }}
               >
                 Install
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
+      </Modal>
+
+      <Modal
+        open={openTrusted}
+        aria-labelledby="parent-modal-title"
+        aria-describedby="parent-modal-description"
+      >
+        <Box
+          className="modal"
+          sx={{
+            width: 560,
+            backgroundColor: "#16171E",
+            border: "solid 1px #343951",
+            borderRadius: "8px",
+            py: 4,
+          }}
+        >
+          <Stack spacing={3}>
+            <Box>
+              <Stack spacing={3} alignItems="center">
+                <Typography variant="h6" color="error">
+                  Mark Certificate as Trusted
+                </Typography>
+                <Typography variant="body1" color="white" textAlign="center">
+                  To use our service, please mark <strong>&lt;Marketing CA&gt;</strong> as trusted:
+                </Typography>
+                <Box component="ul" sx={{ textAlign: 'left', color: 'white', pl: 3 }}>
+                  <li>Open <strong>Keychain Access</strong> → <strong>System keychain</strong>.</li>
+                  <li>Locate <strong>&lt;Marketing CA&gt;</strong> and <strong>double-click</strong> it.</li>
+                  <li>Expand <strong>Trust</strong>.</li>
+                  <li>Set <strong>“When using this certificate”</strong> → <strong>Always Trust</strong>.</li>
+                  <li>Authenticate if prompted.</li>
+                </Box>
+              </Stack>
+            </Box>
+
+            <Stack
+              spacing={3}
+              direction="row"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Button
+                variant="contained"
+                disableElevation
+                onClick={handleMarkTrusted}
+                size="large"
+                sx={{ minWidth: 160 }}
+              >
+                {trustedStatus ? "All done! Please restart the app." : "Mark as Trusted"}
               </Button>
             </Stack>
           </Stack>

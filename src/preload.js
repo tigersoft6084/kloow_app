@@ -8,7 +8,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getAppName: () => ipcRenderer.invoke("get-app-name"),
   installCert: () => ipcRenderer.invoke("install-cert"),
   checkCert: () => ipcRenderer.invoke("check-cert"),
+  checkCertTrusted: () => ipcRenderer.invoke("check-cert-trusted"),
+  markCertTrusted: () => ipcRenderer.invoke("mark-cert-trusted"),
   restartAndUpdate: () => ipcRenderer.send("restart-and-update"),
+  closeApp: () => ipcRenderer.send("close-app"),
   checkForUpdates: () => ipcRenderer.send("check-for-updates"),
   downloadBrowser: () => ipcRenderer.invoke("download-browser"),
   runBrowser: (id, url, server) =>
