@@ -343,13 +343,13 @@ if (!gotTheLock) {
     } else {
       try {
         const output = execSync(
-          "certutil -store Root 3aa5c9285c6eb3237abfcf943d9bf504019b68fb",
+          "certutil -store Root 75358677431cebdf2a7f3b23dd765305f7037a1d",
           {
             encoding: "utf8",
             stdio: "pipe",
           }
         );
-        if (output.includes("3aa5c9285c6eb3237abfcf943d9bf504019b68fb")) {
+        if (output.includes("75358677431cebdf2a7f3b23dd765305f7037a1d")) {
           return true;
         } else {
           return false;
