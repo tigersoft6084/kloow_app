@@ -936,7 +936,7 @@ const Dashboard = () => {
                               }}
                               disabled={isSfssDownloading || isSflaDownloading || sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
                             >
-                              {isSfssDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Crack") : ("Please install version 23.1 in the default directory")}
+                              {isSfssDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Activate License") : ("Please install version 23.1 in the default directory")}
                             </Button>
                           ) : (
                             <Button
@@ -1035,7 +1035,7 @@ const Dashboard = () => {
                             }}
                             disabled={isSflaDownloading || isSfssDownloading || sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== 6.4}
                           >
-                            {isSflaDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Crack") : ("Please install version 6.4 in the default directory")}
+                            {isSflaDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Activate License") : ("Please install version 6.4 in the default directory")}
                           </Button>
                         </Stack>
                       </Stack>
