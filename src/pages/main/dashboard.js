@@ -168,6 +168,10 @@ const Dashboard = () => {
       ? "https://admin.kloow.com/" + item.logoPath
       : DefaultAppImage;
 
+  const [serverSelection, setServerSelection] = useState({});
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuAppId, setMenuAppId] = useState(null);
+
   const handleBrowserStatus = useCallback((event, { id, running }) => {
     setRunningStatus((prev) => {
       if (prev[id] === running) {
@@ -200,6 +204,9 @@ const Dashboard = () => {
   useEffect(() => {
     getAppList().then((appList) => {
       const initialStatus = appList.reduce((acc, app) => {
+        if (app.servers) {
+          setServerSelection((prev) => ({ ...prev, [app.id]: app.servers[0] }));
+        }
         acc[app.id] = false;
         return acc;
       }, {});
@@ -533,7 +540,7 @@ const Dashboard = () => {
                 setOpenSetting(true);
                 handleMenuClose();
               }}
-              sx={{ color: "white" }}
+              sx={{ color: 'white', '&:hover': { backgroundColor: '#1976d2' } }}
             >
               <Stack direction="row" alignItems="center" spacing={1}>
                 <img
@@ -544,7 +551,7 @@ const Dashboard = () => {
                 <Typography variant="body2">Account Settings</Typography>
               </Stack>
             </MenuItem>
-            <MenuItem onClick={logout} sx={{ color: "white" }}>
+            <MenuItem onClick={logout} sx={{ color: 'white', '&:hover': { backgroundColor: '#1976d2' } }}>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <img
                   src={LoginIcon}
@@ -640,7 +647,7 @@ const Dashboard = () => {
                           setFavorite(app?.id);
                           handleCloseAdd();
                         }}
-                        sx={{ color: "white" }}
+                        sx={{ color: "white", '&:hover': { backgroundColor: '#1976d2' } }}
                       >
                         <Box
                           sx={{
@@ -805,6 +812,7 @@ const Dashboard = () => {
                               sortOrder === order
                                 ? "#3B4157!important"
                                 : "inherit",
+                            '&:hover': { background: '#1976d2!important' }
                           }}
                         >
                           <Stack
@@ -1152,36 +1160,101 @@ const Dashboard = () => {
                               </Tooltip>
                               <Box sx={{ height: 4 }}></Box>
                               {app.isAllowed ? (
-                                <Button
-                                  fullWidth
-                                  disableElevation
-                                  variant="contained"
-                                  onClick={() =>
-                                    runningStatus[app.id]
-                                      ? stop(app.id)
-                                      : run(app.id, app.initUrl, app.servers?.[0])
-                                  }
-                                  disabled={tryRunningStatus.includes(app.id)}
-                                  sx={{
-                                    fontWeight: "bold",
-                                    borderRadius: "8px",
-                                    backgroundColor: runningStatus[app.id]
-                                      ? "#E03E3E"
-                                      : "#3A71E1",
-                                  }}
-                                >
+                                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                                   {runningStatus[app.id] ? (
-                                    <>
+                                    <Button
+                                      fullWidth
+                                      disableElevation
+                                      variant="contained"
+                                      onClick={() => stop(app.id)}
+                                      disabled={tryRunningStatus.includes(app.id)}
+                                      sx={{
+                                        fontWeight: "bold",
+                                        borderRadius: "8px",
+                                        backgroundColor: "#E03E3E",
+                                      }}
+                                    >
                                       <PauseIcon sx={{ mr: 1 }} />
                                       STOP
-                                    </>
+                                    </Button>
                                   ) : (
                                     <>
-                                      <PlayArrowIcon sx={{ mr: 1 }} />
-                                      RUN
+                                      <Button
+                                        fullWidth
+                                        disableElevation
+                                        variant="contained"
+                                        onClick={() => run(app.id, app.initUrl, serverSelection[app.id] ?? app.servers?.[0])}
+                                        disabled={tryRunningStatus.includes(app.id)}
+                                        sx={{
+                                          flex: 1,
+                                          fontWeight: "bold",
+                                          borderRadius: "8px",
+                                          backgroundColor: "#3A71E1",
+                                        }}
+                                      >
+                                        <PlayArrowIcon sx={{ mr: 1 }} />
+                                        RUN
+                                      </Button>
+                                      {app.servers && app.servers.length > 0 && (
+                                        <>
+                                          <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                              setMenuAnchor(e.currentTarget);
+                                              setMenuAppId(app.id);
+                                            }}
+                                            sx={{ ml: 1, color: 'white', background: '#1976d2', borderRadius: '8px', width: 44, height: 36, p: 0 }}
+                                          >
+                                            <ExpandMore sx={{ fontSize: 20 }} />
+                                          </IconButton>
+                                          <Menu
+                                            anchorEl={menuAnchor}
+                                            open={Boolean(menuAnchor) && menuAppId === app.id}
+                                            onClose={() => {
+                                              setMenuAnchor(null);
+                                              setMenuAppId(null);
+                                            }}
+                                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                            slotProps={{
+                                              paper: {
+                                                sx: {
+                                                  bgcolor: '#252834',
+                                                  color: 'white',
+                                                  borderRadius: '8px',
+                                                  border: 'solid 1px #343847',
+                                                  mt: 1
+                                                }
+                                              }
+                                            }}
+                                          >
+                                            {(app.servers || []).map((srv, idx) => {
+                                              const label = `${app.title} - ${idx + 1}`;
+                                              const sel = serverSelection[app.id];
+                                              const isSelected = sel === srv || (sel && typeof sel !== 'string' && typeof srv !== 'string' && (sel.name === srv.name || sel.host === srv.host)) || (typeof sel === 'string' && sel === label);
+                                              return (
+                                                <MenuItem
+                                                  key={`srv_${app.id}_${idx}`}
+                                                  onClick={() => {
+                                                    setServerSelection((prev) => ({ ...prev, [app.id]: srv }));
+                                                    setMenuAnchor(null);
+                                                    setMenuAppId(null);
+                                                  }}
+                                                  sx={{ background: 'inherit', '&:hover': { backgroundColor: '#1976d2' } }}
+                                                >
+                                                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ width: '100%' }}>
+                                                    <Typography variant="body2" sx={{ color: 'white' }}>{label}</Typography>
+                                                    {isSelected && <Check sx={{ fontSize: 16, color: 'white' }} />}
+                                                  </Stack>
+                                                </MenuItem>
+                                              );
+                                            })}
+                                          </Menu>
+                                        </>
+                                      )}
                                     </>
                                   )}
-                                </Button>
+                                </Box>
                               ) : (
                                 <Button
                                   fullWidth
