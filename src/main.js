@@ -1104,13 +1104,13 @@ if (!gotTheLock) {
 
     console.log("⬇️ Downloading updated JAR from:", downloadURL);
 
-    // const dl = await download(mainWindow, downloadURL, {
-    //   directory: os.tmpdir(),
-    //   filename: `${name}-update.jar`,
-    //   overwrite: true
-    // });
+    const dl = await download(mainWindow, downloadURL, {
+      directory: os.tmpdir(),
+      filename: `${name}-update.jar`,
+      overwrite: true
+    });
 
-    // console.log("📁 Downloaded to:", dl.getSavePath());
+    console.log("📁 Downloaded to:", dl.getSavePath());
 
     console.log("🔁 Replacing file...");
     const replaced = await safeReplace(jarPath, tmpDest);
