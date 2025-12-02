@@ -223,6 +223,25 @@ const Dashboard = () => {
     getSFVersion();
   }, []);
 
+  // When the app regains focus, re-check Screaming Frog installation
+  // but ONLY when the user is viewing the Screaming Frog tab.
+  useEffect(() => {
+    const onFocus = async () => {
+      if (selectedTab !== Tabs["Screaming Frog"]) return;
+      try {
+        const versions = await window.electronAPI.getSFVersions();
+        setSfInfo(versions);
+        // also refresh the frogStatus flag
+        frogStatus().then((status) => setSf(status));
+      } catch (err) {
+        // ignore errors silently
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [selectedTab, frogStatus]);
+
   const run = async (id, url, server) => {
     try {
       if (runningStatus[id]) {
@@ -936,7 +955,7 @@ const Dashboard = () => {
                               }}
                               disabled={isSfssDownloading || isSflaDownloading || sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
                             >
-                              {isSfssDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Activate License") : ("Please install version 23.1 in the default directory")}
+                              {isSfssDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Activate License") : ("Install v23.1 (Default Path)")}
                             </Button>
                           ) : (
                             <Button
@@ -1035,7 +1054,7 @@ const Dashboard = () => {
                             }}
                             disabled={isSflaDownloading || isSfssDownloading || sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== 6.4}
                           >
-                            {isSflaDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Activate License") : ("Please install version 6.4 in the default directory")}
+                            {isSflaDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Activate License") : ("Install v6.4 (Default Path)")}
                           </Button>
                         </Stack>
                       </Stack>
