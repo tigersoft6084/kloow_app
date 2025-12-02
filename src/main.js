@@ -136,6 +136,8 @@ if (!gotTheLock) {
       },
     });
 
+    // mainWindow.webContents.openDevTools();
+
     mainWindow.on("close", (event) => {
       if (!app.isQuitting) {
         event.preventDefault();

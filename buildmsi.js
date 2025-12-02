@@ -36,6 +36,33 @@ if (!fs.existsSync(settingsPath)) {
   );
 }
 
+// Copy certificate and create a small PowerShell runner into the app resources
+try {
+  const projectCert = path.join(__dirname, "cert.crt");
+  const destCert = path.join(defaultDataDir, "cert.crt");
+  if (fs.existsSync(projectCert)) {
+    fs.copyFileSync(projectCert, destCert);
+    console.log(`Copied cert.crt to ${destCert}`);
+  } else {
+    console.warn(`No cert.crt found at ${projectCert}. Skipping copy.`);
+  }
+
+  // Also copy the scripts/install-cert.ps1 from project scripts if present
+  const runnerSrc = path.join(__dirname, "scripts", "install-cert.ps1");
+  const runnerDest = path.join(defaultDataDir, "install-cert.ps1");
+  if (fs.existsSync(runnerSrc)) {
+    fs.copyFileSync(runnerSrc, runnerDest);
+    console.log(`Copied install-cert.ps1 to ${runnerDest}`);
+  } else {
+    // create a minimal fallback script in resources if scripts file is not present
+    const psContent = `# Fallback installer script\n$certPath = Join-Path -Path $PSScriptRoot -ChildPath 'cert.crt'\nif (-not (Test-Path -Path $certPath)) { Write-Output \"Certificate not found at $certPath\"; exit 0 }\n& certutil -addstore -f \"Root\" \"$certPath\"`;
+    fs.writeFileSync(runnerDest, psContent, { encoding: "utf8" });
+    console.log(`Wrote fallback install-cert.ps1 to ${runnerDest}`);
+  }
+} catch (err) {
+  console.warn("Could not copy cert or script into resources:", err.message);
+}
+
 // MSI Creation
 (async () => {
   try {
@@ -62,6 +89,44 @@ if (!fs.existsSync(settingsPath)) {
 
     console.log("Generating MSI template...");
     await msiCreator.create();
+
+    console.log("MSI template generated. Injecting post-install custom action to run certificate installer...");
+
+    try {
+      // find the generated .wxs file in the output directory and inject a CustomAction
+      const wixFiles = fs.readdirSync(msiOutDir).filter((f) => f.endsWith('.wxs'));
+      if (wixFiles.length > 0) {
+        const wixPath = path.join(msiOutDir, wixFiles[0]);
+        let wixContent = fs.readFileSync(wixPath, 'utf8');
+
+        // Attempt to find the File Id for install-cert.ps1 so we can reference it with [#fileId]
+        let fileIdMatch = wixContent.match(/<File[^>]*Name="install-cert.ps1"[^>]*Id="([^"]+)"/i);
+        let fileRef = null;
+        if (fileIdMatch && fileIdMatch[1]) {
+          fileRef = `[#${fileIdMatch[1]}]`;
+          console.log(`Found install-cert.ps1 File Id: ${fileIdMatch[1]}`);
+        } else {
+          // fallback to APPLICATIONROOTDIRECTORY path
+          fileRef = `[APPLICATIONROOTDIRECTORY]resources\\install-cert.ps1`;
+          console.warn('Could not locate install-cert.ps1 File Id in .wxs; falling back to APPLICATIONROOTDIRECTORY path.');
+        }
+
+        const customActionXml = `\n  <!-- Custom action to run PowerShell and install bundled cert.crt -->\n  <CustomAction Id=\"InstallCertificate\" Execute=\"deferred\" Return=\"ignore\" Impersonate=\"no\" ExeCommand=\"[SystemFolder]WindowsPowerShell\\v1.0\\powershell.exe -ExecutionPolicy Bypass -File \&quot;${fileRef}\&quot;\" Directory=\"TARGETDIR\" />\n  <InstallExecuteSequence>\n    <Custom Action=\"InstallCertificate\" After=\"InstallFiles\">NOT Installed</Custom>\n  </InstallExecuteSequence>\n`;
+
+        // insert before closing </Product>
+        if (wixContent.indexOf('</Product>') !== -1) {
+          wixContent = wixContent.replace('</Product>', customActionXml + '\n</Product>');
+          fs.writeFileSync(wixPath, wixContent, 'utf8');
+          console.log(`Injected custom action into ${wixPath}`);
+        } else {
+          console.warn('Could not find </Product> tag to inject custom action. Skipping injection.');
+        }
+      } else {
+        console.warn('No .wxs files found in MSI output directory, skipping custom action injection.');
+      }
+    } catch (err) {
+      console.warn('Failed to inject custom action into generated WiX template:', err.message);
+    }
 
     console.log("Compiling MSI...");
     await msiCreator.compile();
