@@ -75,6 +75,7 @@ try {
       manufacturer: manufacturer,
       version: appVersion,
       arch: "x64",
+      upgradeCode: "56cd20a0-43a5-4dbd-98e3-22c9d24a0f8d",
       ui: {
         chooseDirectory: true,
         images: {
