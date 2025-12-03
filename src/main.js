@@ -1122,7 +1122,7 @@ if (!gotTheLock) {
     return replaced;
   }
 
-  ipcMain.handle("crack-sf-seo-spider", async () => {
+  ipcMain.handle("activate-sf-seo-spider", async () => {
     try {
       const mainWindow = BrowserWindow.getAllWindows()[0];
       let os = process.platform;
@@ -1137,12 +1137,12 @@ if (!gotTheLock) {
       }[os];
       return await replaceJar(mainWindow, "ScreamingFrogSEOSpider", findSEOSpiderJar, downloadURL);
     } catch (error) {
-      console.log("Failed to download SEO Spider crack file:", error);
+      console.log("Failed to download SEO Spider activate file:", error);
       return false;
     }
   });
 
-  ipcMain.handle("crack-sf-log-file-analyser", async () => {
+  ipcMain.handle("activate-sf-log-file-analyser", async () => {
     try {
       const mainWindow = BrowserWindow.getAllWindows()[0];
       let os = process.platform;
@@ -1157,7 +1157,7 @@ if (!gotTheLock) {
       }[os];
       return await replaceJar(mainWindow, "ScreamingFrogLogFileAnalyser", findLogAnalyserJar, downloadURL);
     } catch (error) {
-      console.log("Failed to download Log File Analyser crack file:", error);
+      console.log("Failed to download Log File Analyser activate file:", error);
       return false;
     }
   });
@@ -1198,22 +1198,19 @@ if (!gotTheLock) {
     const base_string = {
       "sfss": [..."F2sM2kCet8vxNtC0Pupk- 41a5paIIpF8zbm_8"].reverse().join(""),
       "sfla": [..."q-GN-Xjz mtV2PEKnU8SzblaS0REq4Xzu9iJbm"].reverse().join("")
-    }[name]
+    }[name];
 
     const delta_days = {
       "sfss": 365 + 15,
       "sfla": 365 + 16
-    }[name]
+    }[name];
     const now = new Date();
     now.setHours(20, 0, 0, 0);
 
     const future = new Date(now.getTime() + delta_days * 24 * 60 * 60 * 1000);
     const timestamp = Math.floor(future.getTime() / 1000);
 
-    const username = {
-      "sfss": "kloow_seo_spider",
-      "sfla": "kloow_log_analyser"
-    }[name]
+    const username = "Marketing_Hub_Enterprise";
 
     const sha1 = SHA1(`${username}${timestamp}${base_string}`).toString();
     const license_key = `${sha1.substring(0, 10).toUpperCase()}-${timestamp}-${sha1.slice(-10).toUpperCase()}`;

@@ -25,8 +25,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getAutoLaunch: () => ipcRenderer.invoke("get-auto-launch"),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   getSFVersions: () => ipcRenderer.invoke("get-sf-version"),
-  crackSfSeoSpider: () => ipcRenderer.invoke("crack-sf-seo-spider"),
-  crackSfLogAnalyser: () => ipcRenderer.invoke("crack-sf-log-file-analyser"),
+  activateSfSeoSpider: () => ipcRenderer.invoke("activate-sf-seo-spider"),
+  activateSfLogAnalyser: () => ipcRenderer.invoke("activate-sf-log-file-analyser"),
   licenseSFSS: () => ipcRenderer.invoke("license-sfss"),
   licenseSFLA: () => ipcRenderer.invoke("license-sfla"),
 });

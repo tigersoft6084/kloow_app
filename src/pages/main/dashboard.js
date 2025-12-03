@@ -300,12 +300,12 @@ const Dashboard = () => {
     setDownloading(false);
   };
 
-  const crackSfSeoSpider = async () => {
+  const activateSfSeoSpider = async () => {
     try {
       setIsSfssDownloading(true);
-      const cracked = await window.electronAPI.crackSfSeoSpider();
-      if (!cracked) {
-        errorMessage("Failed to crack Screaming Frog SEO Spider");
+      const activated = await window.electronAPI.activateSfSeoSpider();
+      if (!activated) {
+        errorMessage("Failed to activate Screaming Frog SEO Spider");
         setIsSfssDownloading(false);
         return;
       }
@@ -314,7 +314,7 @@ const Dashboard = () => {
       if (!licensed) {
         errorMessage("Failed to license Screaming Frog SEO Spider");
       } else {
-        successMessage("Successfully cracked Screaming Frog SEO Spider");
+        successMessage("Successfully activated Screaming Frog SEO Spider");
       }
       setIsSfssDownloading(false);
     } catch (error) {
@@ -323,12 +323,12 @@ const Dashboard = () => {
     }
   }
 
-  const crackSfLogAnalyser = async () => {
+  const activateSfLogAnalyser = async () => {
     try {
       setIsSflaDownloading(true);
-      const cracked = await window.electronAPI.crackSfLogAnalyser();
-      if (!cracked) {
-        errorMessage("Failed to crack Screaming Frog Log File Analyser");
+      const activated = await window.electronAPI.activateSfLogAnalyser();
+      if (!activated) {
+        errorMessage("Failed to activate Screaming Frog Log File Analyser");
         setIsSflaDownloading(false);
         return;
       }
@@ -337,7 +337,7 @@ const Dashboard = () => {
       if (!licensed) {
         errorMessage("Failed to license Screaming Frog Log File Analyser");
       } else {
-        successMessage("Successfully cracked Screaming Frog Log File Analyser");
+        successMessage("Successfully activated Screaming Frog Log File Analyser");
       }
       setIsSflaDownloading(false);
     } catch (error) {
@@ -947,7 +947,7 @@ const Dashboard = () => {
                               fullWidth
                               disableElevation
                               variant="contained"
-                              onClick={isSfssDownloading || isSflaDownloading ? () => { } : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? () => crackSfSeoSpider() : () => { }}
+                              onClick={isSfssDownloading || isSflaDownloading ? () => { } : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? () => activateSfSeoSpider() : () => { }}
                               sx={{
                                 fontWeight: "bold",
                                 borderRadius: "8px",
@@ -1046,7 +1046,7 @@ const Dashboard = () => {
                             fullWidth
                             disableElevation
                             variant="contained"
-                            onClick={isSflaDownloading || isSfssDownloading ? () => { } : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? () => crackSfLogAnalyser() : () => { }}
+                            onClick={isSflaDownloading || isSfssDownloading ? () => { } : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? () => activateSfLogAnalyser() : () => { }}
                             sx={{
                               fontWeight: "bold",
                               borderRadius: "8px",
