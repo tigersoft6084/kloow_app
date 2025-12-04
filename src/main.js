@@ -1324,19 +1324,17 @@ if (!gotTheLock) {
 
           try {
             if (platform === "win32") {
-              // Windows: spawn the NSIS installer executable
-              log.info("Launching Windows NSIS installer");
-              const args = [
-                "-NoProfile",
-                "-ExecutionPolicy", "Bypass",
-                "-Command",
-                `Start-Process -FilePath "msiexec.exe" -ArgumentList '/i', '${installerPath}', '/passive', 'REBOOT=ReallySuppress' -Verb RunAs`
-              ];
-
-              // spawn powershell
-              const child = spawn("powershell.exe", args, {
+              // Windows: launch the MSI installer using msiexec
+              log.info("Launching Windows MSI installer");
+              const child = spawn("msiexec.exe", [
+                "/i",
+                installerPath,
+                "/passive",
+                "REBOOT=ReallySuppress"
+              ], {
                 detached: true,
                 stdio: "ignore",
+                shell: false
               });
 
               child.unref();

@@ -175,6 +175,7 @@ const Dashboard = () => {
   const [updateDownloadStatus, setUpdateDownloadStatus] = useState("");
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [updateNotificationShown, setUpdateNotificationShown] = useState(false);
+  const [isUpdateDownloading, setIsUpdateDownloading] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("user")) || {};
   const getItemTitle = (item) => item.title || item.description || "";
@@ -294,10 +295,13 @@ const Dashboard = () => {
   const downloadAndUpdate = async () => {
     if (!update) return;
     try {
+      setIsUpdateDownloading(true);
       await window.electronAPI.downloadAndUpdate(downloadUrl);
       successMessage(`Update to version ${latestVersion} started downloading`);
+      setIsUpdateDownloading(false);
     } catch (error) {
       errorMessage(`Failed to update`);
+      setIsUpdateDownloading(false);
     }
   }
 
@@ -1544,7 +1548,7 @@ const Dashboard = () => {
           )}
           <Button
             onClick={handleDownloadFromDialog}
-            disabled={updateDownloading}
+            disabled={updateDownloading || isUpdateDownloading}
             sx={{
               textTransform: "none",
               backgroundColor: "#c74ad3",
@@ -1554,7 +1558,7 @@ const Dashboard = () => {
               "&:disabled": { backgroundColor: "#666", color: "#999" },
             }}
           >
-            {updateDownloading ? "Downloading..." : "Download & Update"}
+            {updateDownloading || isUpdateDownloading ? "Downloading..." : "Download & Update"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1633,7 +1637,7 @@ const Dashboard = () => {
                     )}
                   </Box>
                   <Button
-                    disabled={updateDownloading}
+                    disabled={updateDownloading || isUpdateDownloading}
                     onClick={downloadAndUpdate}
                     sx={{
                       width: "100%",
@@ -1651,7 +1655,7 @@ const Dashboard = () => {
                       },
                     }}
                   >
-                    {updateDownloading ? "Downloading..." : "Download & Update"}
+                    {updateDownloading || isUpdateDownloading ? "Downloading..." : "Download & Update"}
                   </Button>
                 </Stack>
               ) : (
