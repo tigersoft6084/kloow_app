@@ -23,6 +23,7 @@ const log = require("electron-log");
 const sudo = require("sudo-prompt");
 const os = require("os");
 const { SHA1 } = require("crypto-js");
+const semver = require("semver");
 
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
@@ -1104,6 +1105,7 @@ if (!gotTheLock) {
 
     console.log("⬇️ Downloading updated JAR from:", downloadURL);
 
+    isDownloading = true;
     const dl = await download(mainWindow, downloadURL, {
       directory: os.tmpdir(),
       filename: `${name}-update.jar`,
@@ -1111,6 +1113,7 @@ if (!gotTheLock) {
     });
 
     console.log("📁 Downloaded to:", dl.getSavePath());
+    isDownloading = false;
 
     console.log("🔁 Replacing file...");
     const replaced = await safeReplace(jarPath, tmpDest);
@@ -1223,5 +1226,181 @@ if (!gotTheLock) {
 
   ipcMain.handle("license-sfla", async () => {
     return licenseSF("sfla");
+  });
+
+  ipcMain.handle("check-update", async (event, remote) => {
+    const localVersion = app.getVersion();
+    const platform = process.platform;
+
+    try {
+      if (semver.gt(remote.version, localVersion)) {
+        // For macOS, use architecture-specific URL (darwin-x64 or darwin-arm64)
+        const downloadUrl = remote.downloadUrls[platform];
+
+        return {
+          updateAvailable: true,
+          latestVersion: remote.version,
+          downloadUrl: downloadUrl
+        };
+      } else {
+        return {
+          updateAvailable: false,
+        };
+      }
+    } catch (error) {
+      log.error("Error checking for updates:", error);
+      return {
+        updateAvailable: false,
+        error: error.message,
+      };
+    }
+  });
+
+  ipcMain.handle("download-and-update", async (event, downloadUrl) => {
+    try {
+      const platform = process.platform;
+      const tmpDir = require("os").tmpdir();
+
+      // Determine file extension based on platform
+      let ext = "";
+      let filename = "";
+      if (platform === "win32") {
+        ext = ".msi";
+        filename = `kloow-update-${Date.now()}${ext}`;
+      } else if (platform === "darwin") {
+        ext = ".dmg";
+        filename = `kloow-update-${Date.now()}${ext}`;
+      } else if (platform === "linux") {
+        ext = ".deb";
+        filename = `kloow-update-${Date.now()}${ext}`;
+      }
+
+      const tmpDest = path.join(tmpDir, filename);
+
+      isDownloading = true;
+      const windows = BrowserWindow.getAllWindows();
+
+      // Notify all windows that download is starting
+      windows.forEach((win) =>
+        win.webContents.send("update-download-status", {
+          status: "downloading",
+          message: "Update download started.",
+          percent: 0,
+        })
+      );
+
+      log.info("⬇️ Downloading update from:", downloadUrl);
+
+      await download(windows[0], downloadUrl, {
+        directory: tmpDir,
+        filename: filename,
+        overwrite: true,
+        onStarted: () => {
+          log.info("Update download started.");
+        },
+        onProgress: (percent) => {
+          windows.forEach((win) =>
+            win.webContents.send("update-download-status", {
+              status: "downloading",
+              message: `Downloading: ${Math.round(percent * 100)}%`,
+              percent: Math.round(percent * 100),
+            })
+          );
+        },
+        onCompleted: (file) => {
+          isDownloading = false;
+          const installerPath = tmpDest;
+          log.info("Update download completed:", installerPath);
+          windows.forEach((win) =>
+            win.webContents.send("update-download-status", {
+              status: "completed",
+              message: "Update downloaded successfully. Applying update...",
+              percent: 100,
+            })
+          );
+
+          // Install the update based on platform
+          log.info("Starting update installer for", platform, "...", installerPath);
+
+          try {
+            if (platform === "win32") {
+              // Windows: spawn the NSIS installer executable
+              log.info("Launching Windows NSIS installer");
+              const args = [
+                "-NoProfile",
+                "-ExecutionPolicy", "Bypass",
+                "-Command",
+                `Start-Process -FilePath "msiexec.exe" -ArgumentList '/i', '${installerPath}', '/passive', 'REBOOT=ReallySuppress' -Verb RunAs`
+              ];
+
+              // spawn powershell
+              const child = spawn("powershell.exe", args, {
+                detached: true,
+                stdio: "ignore",
+              });
+
+              child.unref();
+            } else if (platform === "darwin") {
+              // macOS: open the DMG file (mounts it and shows Finder)
+              log.info("Opening macOS DMG installer");
+              exec(`open "${installerPath}"`);
+            } else if (platform === "linux") {
+              log.info("Installing .deb package");
+              try {
+                const command = `dpkg -i "${installerPath}"`;
+
+                // install .deb via apt (non-interactive)
+                sudo.exec(command, { name: "Kloow" }, (error, stdout, stderr) => {
+                  if (error) {
+                    log.error("Install failed:", error);
+                    return;
+                  }
+                  log.info("Install output:", stdout);
+                });
+
+                log.info("Installation complete");
+              } catch (err) {
+                log.error("Failed to install deb:", err);
+              }
+            }
+
+            // Quit the app after a short delay to allow installer to start
+            setTimeout(() => {
+              log.info("Quitting app to apply update");
+              app.isQuitting = true;
+              app.quit();
+            }, 1500);
+          } catch (installError) {
+            log.error("Error launching installer:", installError);
+            isDownloading = false;
+            windows.forEach((win) =>
+              win.webContents.send("update-download-status", {
+                status: "error",
+                message: `Failed to launch installer: ${installError.message}`,
+              })
+            );
+          }
+        },
+        onError: (error) => {
+          isDownloading = false;
+          log.error("Download error:", error.message);
+          windows.forEach((win) =>
+            win.webContents.send("update-download-status", {
+              status: "error",
+              message: `Download failed: ${error.message}`,
+            })
+          );
+        },
+      });
+    } catch (e) {
+      isDownloading = false;
+      log.error("Error downloading update:", e);
+      BrowserWindow.getAllWindows().forEach((win) =>
+        win.webContents.send("update-download-status", {
+          status: "error",
+          message: e.message,
+        })
+      );
+    }
   });
 }

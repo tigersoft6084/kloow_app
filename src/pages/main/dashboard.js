@@ -20,6 +20,11 @@ import {
   OutlinedInput,
   Divider,
   Tooltip,
+  Badge,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import { FavoriteBorder, Language, Water } from "@mui/icons-material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
@@ -110,6 +115,7 @@ const listItemIconSx = { color: "white", minWidth: 32 };
 
 const Dashboard = () => {
   const {
+    getLatestInfo,
     frogStatus,
     getAppList,
     appList,
@@ -160,6 +166,15 @@ const Dashboard = () => {
   const handleMenuClose = () => setAnchorEl(null);
 
   const [startup, setStartup] = useState(false);
+
+  const [update, setUpdate] = useState(false);
+  const [latestVersion, setLatestVersion] = useState(null);
+  const [downloadUrl, setDownloadUrl] = useState(null);
+  const [updateDownloading, setUpdateDownloading] = useState(false);
+  const [updateDownloadProgress, setUpdateDownloadProgress] = useState(0);
+  const [updateDownloadStatus, setUpdateDownloadStatus] = useState("");
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [updateNotificationShown, setUpdateNotificationShown] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("user")) || {};
   const getItemTitle = (item) => item.title || item.description || "";
@@ -222,6 +237,78 @@ const Dashboard = () => {
     };
     getSFVersion();
   }, []);
+
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      try {
+        const latestInfo = await getLatestInfo();
+        const remote = {
+          version: latestInfo.version,
+          downloadUrls: {
+            win32: latestInfo.downloadUrls.win32,
+            darwin: latestInfo.downloadUrls.darwin,
+            linux: latestInfo.downloadUrls.linux
+          }
+        }
+        const result = await window.electronAPI.checkUpdate(remote);
+        if (result.updateAvailable) {
+          setUpdate(true);
+          setLatestVersion(result.latestVersion);
+          setDownloadUrl(result.downloadUrl);
+
+          // Show notification and dialog only if not shown before
+          if (!updateNotificationShown) {
+            setShowUpdateDialog(true);
+            setUpdateNotificationShown(true);
+            successMessage(`Update available: v${result.latestVersion}`);
+          }
+        } else {
+          setUpdate(false);
+          setLatestVersion(null);
+          setDownloadUrl(null);
+        }
+      } catch (error) {
+        console.error("Error checking for updates - front:", error);
+        // ignore errors
+      }
+    };
+    checkForUpdates();
+  }, []);
+
+  // Listen for app update download progress
+  useEffect(() => {
+    const handleUpdateDownloadStatus = (data) => {
+      setUpdateDownloading(data.status === "downloading");
+      setUpdateDownloadProgress(data.percent || 0);
+      setUpdateDownloadStatus(data.message);
+    };
+
+    window.electronAPI.onUpdateDownloadStatus(handleUpdateDownloadStatus);
+
+    // Cleanup listener
+    return () => {
+      // IPC listeners don't have a built-in unsubscribe, but React will handle cleanup
+    };
+  }, []);
+
+  const downloadAndUpdate = async () => {
+    if (!update) return;
+    try {
+      await window.electronAPI.downloadAndUpdate(downloadUrl);
+      successMessage(`Update to version ${latestVersion} started downloading`);
+    } catch (error) {
+      errorMessage(`Failed to update`);
+    }
+  }
+
+  const handleDownloadFromDialog = async () => {
+    await downloadAndUpdate();
+    // Don't close dialog yet, let it show progress
+  }
+
+  const handleDismissUpdate = () => {
+    setShowUpdateDialog(false);
+  }
 
   // When the app regains focus, re-check Screaming Frog installation
   // but ONLY when the user is viewing the Screaming Frog tab.
@@ -506,20 +593,22 @@ const Dashboard = () => {
                 />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Account Settings">
-              <IconButton
-                onClick={handleMenuOpen}
-                aria-controls={menuOpen ? "profile-menu" : undefined}
-                aria-haspopup="true"
-                aria-expanded={menuOpen ? "true" : undefined}
-                sx={{ color: "white", p: 0 }}
-              >
-                <img
-                  src={ProfileIcon}
-                  alt="profile"
-                  style={{ width: 34, height: 34 }}
-                />
-              </IconButton>
+            <Tooltip title={update ? "Update Available" : "Account Settings"}>
+              <Badge variant="dot" color="error" invisible={!update}>
+                <IconButton
+                  onClick={handleMenuOpen}
+                  aria-controls={menuOpen ? "profile-menu" : undefined}
+                  aria-haspopup="true"
+                  aria-expanded={menuOpen ? "true" : undefined}
+                  sx={{ color: "white", p: 0 }}
+                >
+                  <img
+                    src={ProfileIcon}
+                    alt="profile"
+                    style={{ width: 34, height: 34 }}
+                  />
+                </IconButton>
+              </Badge>
             </Tooltip>
             <Tooltip title="Log Out">
               <IconButton onClick={logout} sx={{ color: "white", p: 0 }}>
@@ -561,14 +650,22 @@ const Dashboard = () => {
               }}
               sx={{ color: 'white', '&:hover': { backgroundColor: '#1976d2' } }}
             >
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <img
-                  src={SettingsIcon}
-                  alt="settings"
-                  style={{ width: 24, height: 24 }}
-                />
-                <Typography variant="body2">Account Settings</Typography>
-              </Stack>
+              <Badge
+                variant="dot"
+                color="error"
+                invisible={!update}
+                overlap="rectangular"
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <img
+                    src={SettingsIcon}
+                    alt="settings"
+                    style={{ width: 24, height: 24 }}
+                  />
+                  <Typography variant="body2">Account Settings</Typography>
+                </Stack>
+              </Badge>
             </MenuItem>
             <MenuItem onClick={logout} sx={{ color: 'white', '&:hover': { backgroundColor: '#1976d2' } }}>
               <Stack direction="row" alignItems="center" spacing={1}>
@@ -1381,6 +1478,87 @@ const Dashboard = () => {
           </Stack>
         </Stack>
       </Modal>
+
+      {/* Update Available Dialog */}
+      <Dialog
+        open={showUpdateDialog}
+        onClose={handleDismissUpdate}
+        PaperProps={{
+          sx: {
+            backgroundColor: "#16171E",
+            color: "white",
+            border: "1px solid #343951",
+            borderRadius: "8px",
+            minWidth: "400px",
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontSize: 18, fontWeight: 600, pb: 1 }}>
+          Update Available
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2}>
+            <Typography variant="body1" color="#ccc">
+              A new version <strong>v{latestVersion}</strong> is available for download.
+            </Typography>
+            {updateDownloading ? (
+              <Stack spacing={1}>
+                <Typography variant="body2" color="#888">
+                  {updateDownloadStatus}
+                </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={updateDownloadProgress}
+                  sx={{
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: "#343951",
+                    "& .MuiLinearProgress-bar": {
+                      backgroundColor: "#c74ad3",
+                    },
+                  }}
+                />
+                <Typography variant="caption" color="#888">
+                  {updateDownloadProgress}%
+                </Typography>
+              </Stack>
+            ) : (
+              <Typography variant="body2" color="#aaa">
+                We recommend updating immediately to get the latest features, improvements, and security fixes.
+              </Typography>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          {!updateDownloading && (
+            <Button
+              onClick={handleDismissUpdate}
+              sx={{
+                textTransform: "none",
+                color: "#888",
+                "&:hover": { color: "#aaa" },
+              }}
+            >
+              Later
+            </Button>
+          )}
+          <Button
+            onClick={handleDownloadFromDialog}
+            disabled={updateDownloading}
+            sx={{
+              textTransform: "none",
+              backgroundColor: "#c74ad3",
+              color: "white",
+              fontWeight: 600,
+              "&:hover": { backgroundColor: "#b83bc4" },
+              "&:disabled": { backgroundColor: "#666", color: "#999" },
+            }}
+          >
+            {updateDownloading ? "Downloading..." : "Download & Update"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Modal
         open={openSetting}
         onClose={() => setOpenSetting(false)}
@@ -1429,6 +1607,58 @@ const Dashboard = () => {
                   window.electronAPI.setAutoLaunch(e.target.checked);
                 }}
               />
+            </Stack>
+            <Divider sx={{ borderColor: "#343951" }} />
+            <Stack spacing={2}>
+              <Typography color="white" sx={{ fontSize: 16, lineHeight: "22px" }}>
+                Application Update
+              </Typography>
+              {update ? (
+                <Stack spacing={2}>
+                  <Box>
+                    <Typography variant="body2" color="white">
+                      Update available: v{latestVersion}
+                    </Typography>
+                    {updateDownloading && (
+                      <>
+                        <Typography variant="body2" color="#888" sx={{ mt: 1 }}>
+                          {updateDownloadStatus}
+                        </Typography>
+                        <LinearProgress
+                          variant="determinate"
+                          value={updateDownloadProgress}
+                          sx={{ mt: 1, height: 4, borderRadius: 2 }}
+                        />
+                      </>
+                    )}
+                  </Box>
+                  <Button
+                    disabled={updateDownloading}
+                    onClick={downloadAndUpdate}
+                    sx={{
+                      width: "100%",
+                      backgroundColor: "#c74ad3",
+                      color: "white",
+                      textTransform: "none",
+                      borderRadius: "8px",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      "&:hover": {
+                        backgroundColor: "#b83bc4",
+                      },
+                      "&:disabled": {
+                        backgroundColor: "#888",
+                      },
+                    }}
+                  >
+                    {updateDownloading ? "Downloading..." : "Download & Update"}
+                  </Button>
+                </Stack>
+              ) : (
+                <Typography variant="body2" color="#888">
+                  You are running the latest version
+                </Typography>
+              )}
             </Stack>
             <Divider sx={{ borderColor: "#343951" }} />
             <Typography color="white" sx={{ fontSize: 16, lineHeight: "22px" }}>

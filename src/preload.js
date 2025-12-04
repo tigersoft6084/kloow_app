@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setTitle: (title) => ipcRenderer.send("set-title", title),
   onUpdateStatus: (callback) => ipcRenderer.on("update-status", callback),
   onDownloadStatus: (callback) => ipcRenderer.on("download-status", callback),
+  onUpdateDownloadStatus: (callback) => ipcRenderer.on("update-download-status", callback),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   getAppName: () => ipcRenderer.invoke("get-app-name"),
   installCert: () => ipcRenderer.invoke("install-cert"),
@@ -29,4 +30,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   activateSfLogAnalyser: () => ipcRenderer.invoke("activate-sf-log-file-analyser"),
   licenseSFSS: () => ipcRenderer.invoke("license-sfss"),
   licenseSFLA: () => ipcRenderer.invoke("license-sfla"),
+
+  checkUpdate: (remote) => ipcRenderer.invoke("check-update", remote),
+  downloadAndUpdate: (downloadUrl) => ipcRenderer.invoke("download-and-update", downloadUrl),
 });

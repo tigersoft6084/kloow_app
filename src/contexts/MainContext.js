@@ -12,6 +12,15 @@ export const MainProvider = ({ children }) => {
 
   const [state, dispatch] = useReducer(MainReducer, initialState);
 
+  const getLatestInfo = async () => {
+    try {
+      const response = await axiosServices.get(`https://www.kloow.com/download/latest.json`);
+      return response.data;
+    } catch (error) {
+      return null;
+    }
+  };
+
   const getAppList = async () => {
     try {
       const response = await axiosServices.get("/app_list");
@@ -75,6 +84,7 @@ export const MainProvider = ({ children }) => {
     <MainContext.Provider
       value={{
         ...state,
+        getLatestInfo,
         frogStatus,
         getAppList,
         setSearchPattern,

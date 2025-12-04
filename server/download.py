@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, Response, send_file, jsonify
 import os
 
 app = Flask(__name__)
@@ -125,6 +125,47 @@ def download_sfla():
         )
     except Exception as e:
         return {"error": str(e)}, 500
+
+
+@app.route("/download/latest.json", methods=["GET"])
+def download_latest_json():
+    try:
+        with open("latest.json", "r") as f:
+            data = f.read()
+
+        return Response(
+            data,
+            mimetype="application/json",
+            headers={
+                "Cache-Control": "no-cache",
+            },
+        )
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route("/download/<path:filename>", methods=["GET"])
+def download_file(filename):
+    try:
+        # Path to your download folder
+        base_dir = "./downloads"  # Change this to your folder
+
+        file_path = os.path.join(base_dir, filename)
+
+        # Check existence
+        if not os.path.isfile(file_path):
+            return jsonify({"error": f"File '{filename}' not found"}), 404
+
+        # Send file
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/octet-stream",
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
