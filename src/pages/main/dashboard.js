@@ -151,7 +151,10 @@ const Dashboard = () => {
 
   const [openSetting, setOpenSetting] = useState(false);
 
-  const [sf, setSf] = useState(false);
+  const [sf, setSf] = useState({
+    seo_spider: null,
+    log_analyser: null,
+  });
   const [sfInfo, setSfInfo] = useState({
     os: "",
     seoSpider: null,
@@ -1043,20 +1046,20 @@ const Dashboard = () => {
                             </Typography>
                           </Tooltip>
                           <Box sx={{ height: 4 }}></Box>
-                          {sf ? (
+                          {sf.seo_spider ? (
                             <Button
                               fullWidth
                               disableElevation
                               variant="contained"
-                              onClick={isSfssDownloading || isSflaDownloading ? () => { } : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? () => activateSfSeoSpider() : () => { }}
+                              onClick={isSfssDownloading || isSflaDownloading ? () => { } : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === parseFloat(sf.seo_spider) ? () => activateSfSeoSpider() : () => { }}
                               sx={{
                                 fontWeight: "bold",
                                 borderRadius: "8px",
                                 backgroundColor: "#3A71E1",
                               }}
-                              disabled={isSfssDownloading || isSflaDownloading || sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== 23.1}
+                              disabled={isSfssDownloading || isSflaDownloading || sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== parseFloat(sf.seo_spider)}
                             >
-                              {isSfssDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === 23.1 ? ("Activate") : ("Install v23.1 (Default Path)")}
+                              {isSfssDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === parseFloat(sf.seo_spider) ? ("Activate") : (`Install v${sf.seo_spider} (Default Path)`)}
                             </Button>
                           ) : (
                             <Button
@@ -1143,20 +1146,41 @@ const Dashboard = () => {
                             </Typography>
                           </Tooltip>
                           <Box sx={{ height: 4 }}></Box>
-                          <Button
-                            fullWidth
-                            disableElevation
-                            variant="contained"
-                            onClick={isSflaDownloading || isSfssDownloading ? () => { } : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? () => activateSfLogAnalyser() : () => { }}
-                            sx={{
-                              fontWeight: "bold",
-                              borderRadius: "8px",
-                              backgroundColor: "#3A71E1",
-                            }}
-                            disabled={isSflaDownloading || isSfssDownloading || sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== 6.4}
-                          >
-                            {isSflaDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === 6.4 ? ("Activate") : ("Install v6.4 (Default Path)")}
-                          </Button>
+                          {sf.log_analyser ? (
+                            <Button
+                              fullWidth
+                              disableElevation
+                              variant="contained"
+                              onClick={isSflaDownloading || isSfssDownloading ? () => { } : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === parseFloat(sf.log_analyser) ? () => activateSfLogAnalyser() : () => { }}
+                              sx={{
+                                fontWeight: "bold",
+                                borderRadius: "8px",
+                                backgroundColor: "#3A71E1",
+                              }}
+                              disabled={isSflaDownloading || isSfssDownloading || sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== parseFloat(sf.log_analyser)}
+                            >
+                              {isSflaDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === parseFloat(sf.log_analyser) ? ("Activate") : (`Install v${sf.log_analyser} (Default Path)`)}
+                            </Button>
+                          ) : (
+                            <Button
+                              fullWidth
+                              disableElevation
+                              variant="contained"
+                              onClick={() =>
+                                window.electronAPI.openExternal(
+                                  `https://${app.domain}`
+                                )
+                              }
+                              sx={{
+                                fontWeight: "bold",
+                                borderRadius: "8px",
+                                backgroundColor: "#c74ad3",
+                              }}
+                            >
+                              <UpgradeOutlinedIcon />
+                              UPGRADE
+                            </Button>
+                          )}
                         </Stack>
                       </Stack>
                     </Grid>
