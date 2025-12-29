@@ -43,6 +43,15 @@ export const MainProvider = ({ children }) => {
     }
   }
 
+  const checkHealth = async (serverSelection) => {
+    try {
+      const response = await axiosServices.post('/check-seocromom-health', { serverSelection });
+      return response.data.healthStatuses;
+    } catch (error) {
+      return null;
+    }
+  }
+
   const setSearchPattern = (searchPattern) => {
     dispatch({
       type: SEARCH_APPLICATION,
@@ -85,6 +94,7 @@ export const MainProvider = ({ children }) => {
       value={{
         ...state,
         getLatestInfo,
+        checkHealth,
         frogStatus,
         getAppList,
         setSearchPattern,

@@ -26,7 +26,7 @@ import {
   DialogContent,
   DialogActions,
 } from "@mui/material";
-import { FavoriteBorder, Language, Water } from "@mui/icons-material";
+import { Build, FavoriteBorder, Language, Water } from "@mui/icons-material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -116,6 +116,7 @@ const listItemIconSx = { color: "white", minWidth: 32 };
 const Dashboard = () => {
   const {
     getLatestInfo,
+    checkHealth,
     frogStatus,
     getAppList,
     appList,
@@ -188,6 +189,7 @@ const Dashboard = () => {
       : DefaultAppImage;
 
   const [serverSelection, setServerSelection] = useState({});
+  const [serverHealth, setServerHealth] = useState({});
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuAppId, setMenuAppId] = useState(null);
 
@@ -205,6 +207,14 @@ const Dashboard = () => {
     window.electronAPI.setTitle("Dashboard");
     window.electronAPI.onBrowserStatus(handleBrowserStatus);
   }, [handleBrowserStatus]);
+
+  useEffect(() => {
+    checkHealth(serverSelection).then(healthStatuses => {
+      if (healthStatuses) {
+        setServerHealth(healthStatuses);
+      }
+    });
+  }, [serverSelection]);
 
   useEffect(() => {
     const getAutoLaunch = async () => {
@@ -1323,22 +1333,39 @@ const Dashboard = () => {
                                     </Button>
                                   ) : (
                                     <>
-                                      <Button
-                                        fullWidth
-                                        disableElevation
-                                        variant="contained"
-                                        onClick={() => run(app.id, app.initUrl, serverSelection[app.id] ?? app.servers?.[0])}
-                                        disabled={tryRunningStatus.includes(app.id)}
-                                        sx={{
-                                          flex: 1,
-                                          fontWeight: "bold",
-                                          borderRadius: "8px",
-                                          backgroundColor: "#3A71E1",
-                                        }}
-                                      >
-                                        <PlayArrowIcon sx={{ mr: 1 }} />
-                                        RUN
-                                      </Button>
+                                      {!serverHealth[app.id] ? (
+                                        <Button
+                                          fullWidth
+                                          disableElevation
+                                          variant="contained"
+                                          disabled={tryRunningStatus.includes(app.id)}
+                                          sx={{
+                                            fontWeight: "bold",
+                                            borderRadius: "8px",
+                                            backgroundColor: "#FF0000",
+                                          }}
+                                        >
+                                          <Build sx={{ mr: 1 }} />
+                                          Temporarily Unavailable
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          fullWidth
+                                          disableElevation
+                                          variant="contained"
+                                          onClick={() => run(app.id, app.initUrl, serverSelection[app.id] ?? app.servers?.[0])}
+                                          disabled={tryRunningStatus.includes(app.id)}
+                                          sx={{
+                                            flex: 1,
+                                            fontWeight: "bold",
+                                            borderRadius: "8px",
+                                            backgroundColor: "#3A71E1",
+                                          }}
+                                        >
+                                          <PlayArrowIcon sx={{ mr: 1 }} />
+                                          RUN
+                                        </Button>
+                                      )}
                                       {app.servers && app.servers.length > 0 && (
                                         <>
                                           <IconButton
