@@ -26,7 +26,7 @@ import {
   DialogContent,
   DialogActions,
 } from "@mui/material";
-import { FavoriteBorder, Language, Water } from "@mui/icons-material";
+import { Build, FavoriteBorder, Language, Water } from "@mui/icons-material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -116,6 +116,7 @@ const listItemIconSx = { color: "white", minWidth: 32 };
 const Dashboard = () => {
   const {
     getLatestInfo,
+    checkHealth,
     frogStatus,
     getAppList,
     appList,
@@ -187,7 +188,26 @@ const Dashboard = () => {
       ? "https://admin.kloow.com/" + item.logoPath
       : DefaultAppImage;
 
+  const getStatusForApp = (id) => {
+    const s = appStatus?.[id];
+    if (s) return s;
+    const raw = serverHealth?.[id];
+    if (raw === true) return "Operational";
+    if (raw === false) return "Maintenance";
+    return "Maintenance";
+  };
+
+  const statusColor = (status) => {
+    if (!status) return "#E03E3E";
+    const t = String(status).toLowerCase();
+    if (t === "operational") return "#00C853"; // green
+    if (t === "unstable") return "#FF9800"; // orange
+    return "#E03E3E"; // maintenance red
+  };
+
   const [serverSelection, setServerSelection] = useState({});
+  const [serverHealth, setServerHealth] = useState({});
+  const [appStatus, setAppStatus] = useState({}); // Map of id -> status string
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuAppId, setMenuAppId] = useState(null);
 
@@ -205,6 +225,41 @@ const Dashboard = () => {
     window.electronAPI.setTitle("Dashboard");
     window.electronAPI.onBrowserStatus(handleBrowserStatus);
   }, [handleBrowserStatus]);
+
+  useEffect(() => {
+    // initial health check
+    const updateHealth = async () => {
+      try {
+        const healthStatuses = await checkHealth(serverSelection);
+        if (healthStatuses) {
+          setServerHealth(healthStatuses);
+          // map healthStatuses values into readable state strings
+          const mapped = Object.keys(healthStatuses).reduce((acc, id) => {
+            const val = healthStatuses[id];
+            let statusText = "Maintenance";
+            if (val === true || String(val).toLowerCase() === "operational" || String(val).toLowerCase() === "up") {
+              statusText = "Operational";
+            } else if (String(val).toLowerCase() === "unstable" || String(val).toLowerCase() === "slow") {
+              statusText = "Unstable";
+            } else {
+              statusText = "Maintenance";
+            }
+            acc[id] = statusText;
+            return acc;
+          }, {});
+          setAppStatus(mapped);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    updateHealth();
+
+    // poll every 60s to get near real-time updates from admin panel
+    const interval = setInterval(updateHealth, 600000);
+    return () => clearInterval(interval);
+  }, [serverSelection]);
 
   useEffect(() => {
     const getAutoLaunch = async () => {
@@ -1304,100 +1359,110 @@ const Dashboard = () => {
                               </Tooltip>
                               <Box sx={{ height: 4 }}></Box>
                               {app.isAllowed ? (
-                                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                                  {runningStatus[app.id] ? (
-                                    <Button
-                                      fullWidth
-                                      disableElevation
-                                      variant="contained"
-                                      onClick={() => stop(app.id)}
-                                      disabled={tryRunningStatus.includes(app.id)}
-                                      sx={{
-                                        fontWeight: "bold",
-                                        borderRadius: "8px",
-                                        backgroundColor: "#E03E3E",
-                                      }}
-                                    >
-                                      <PauseIcon sx={{ mr: 1 }} />
-                                      STOP
-                                    </Button>
-                                  ) : (
-                                    <>
+                                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', flexDirection: 'column' }}>
+                                  <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: statusColor(getStatusForApp(app.id)) }} />
+                                      <Typography variant="caption" color="white">
+                                        {getStatusForApp(app.id)}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                    {runningStatus[app.id] ? (
                                       <Button
                                         fullWidth
                                         disableElevation
                                         variant="contained"
-                                        onClick={() => run(app.id, app.initUrl, serverSelection[app.id] ?? app.servers?.[0])}
+                                        onClick={() => stop(app.id)}
                                         disabled={tryRunningStatus.includes(app.id)}
                                         sx={{
-                                          flex: 1,
                                           fontWeight: "bold",
                                           borderRadius: "8px",
-                                          backgroundColor: "#3A71E1",
+                                          backgroundColor: "#E03E3E",
                                         }}
                                       >
-                                        <PlayArrowIcon sx={{ mr: 1 }} />
-                                        RUN
+                                        <PauseIcon sx={{ mr: 1 }} />
+                                        STOP
                                       </Button>
-                                      {app.servers && app.servers.length > 0 && (
-                                        <>
-                                          <IconButton
-                                            size="small"
-                                            onClick={(e) => {
-                                              setMenuAnchor(e.currentTarget);
-                                              setMenuAppId(app.id);
-                                            }}
-                                            sx={{ ml: 1, color: 'white', background: '#1976d2', borderRadius: '8px', width: 44, height: 36, p: 0 }}
-                                          >
-                                            <ExpandMore sx={{ fontSize: 20 }} />
-                                          </IconButton>
-                                          <Menu
-                                            anchorEl={menuAnchor}
-                                            open={Boolean(menuAnchor) && menuAppId === app.id}
-                                            onClose={() => {
-                                              setMenuAnchor(null);
-                                              setMenuAppId(null);
-                                            }}
-                                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                                            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                            slotProps={{
-                                              paper: {
-                                                sx: {
-                                                  bgcolor: '#252834',
-                                                  color: 'white',
-                                                  borderRadius: '8px',
-                                                  border: 'solid 1px #343847',
-                                                  mt: 1
+                                    ) : (
+                                      <>
+                                        <Button
+                                          fullWidth
+                                          disableElevation
+                                          variant="contained"
+                                          onClick={() => run(app.id, app.initUrl, serverSelection[app.id] ?? app.servers?.[0])}
+                                          disabled={tryRunningStatus.includes(app.id) || !serverHealth[app.id]}
+                                          sx={{
+                                            flex: 1,
+                                            fontWeight: "bold",
+                                            borderRadius: "8px",
+                                            backgroundColor: "#3A71E1",
+                                          }}
+                                        >
+                                          <PlayArrowIcon sx={{ mr: 1 }} />
+                                          RUN
+                                        </Button>
+                                        {app.servers && app.servers.length > 0 && (
+                                          <>
+                                            <IconButton
+                                              size="small"
+                                              onClick={(e) => {
+                                                setMenuAnchor(e.currentTarget);
+                                                setMenuAppId(app.id);
+                                              }}
+                                              sx={{ ml: 1, color: 'white', background: '#1976d2', borderRadius: '8px', width: 44, height: 36, p: 0 }}
+                                            >
+                                              <ExpandMore sx={{ fontSize: 20 }} />
+                                            </IconButton>
+                                            <Menu
+                                              anchorEl={menuAnchor}
+                                              open={Boolean(menuAnchor) && menuAppId === app.id}
+                                              onClose={() => {
+                                                setMenuAnchor(null);
+                                                setMenuAppId(null);
+                                              }}
+                                              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                              slotProps={{
+                                                paper: {
+                                                  sx: {
+                                                    bgcolor: '#252834',
+                                                    color: 'white',
+                                                    borderRadius: '8px',
+                                                    border: 'solid 1px #343847',
+                                                    mt: 1
+                                                  }
                                                 }
-                                              }
-                                            }}
-                                          >
-                                            {(app.servers || []).map((srv, idx) => {
-                                              const label = `${app.title} - ${idx + 1}`;
-                                              const sel = serverSelection[app.id];
-                                              const isSelected = sel === srv || (sel && typeof sel !== 'string' && typeof srv !== 'string' && (sel.name === srv.name || sel.host === srv.host)) || (typeof sel === 'string' && sel === label);
-                                              return (
-                                                <MenuItem
-                                                  key={`srv_${app.id}_${idx}`}
-                                                  onClick={() => {
-                                                    setServerSelection((prev) => ({ ...prev, [app.id]: srv }));
-                                                    setMenuAnchor(null);
-                                                    setMenuAppId(null);
-                                                  }}
-                                                  sx={{ background: 'inherit', '&:hover': { backgroundColor: '#1976d2' } }}
-                                                >
-                                                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ width: '100%' }}>
-                                                    <Typography variant="body2" sx={{ color: 'white' }}>{label}</Typography>
-                                                    {isSelected && <Check sx={{ fontSize: 16, color: 'white' }} />}
-                                                  </Stack>
-                                                </MenuItem>
-                                              );
-                                            })}
-                                          </Menu>
-                                        </>
-                                      )}
-                                    </>
-                                  )}
+                                              }}
+                                            >
+                                              {(app.servers || []).map((srv, idx) => {
+                                                const label = `${app.title} - ${idx + 1}`;
+                                                const sel = serverSelection[app.id];
+                                                const isSelected = sel === srv || (sel && typeof sel !== 'string' && typeof srv !== 'string' && (sel.name === srv.name || sel.host === srv.host)) || (typeof sel === 'string' && sel === label);
+                                                return (
+                                                  <MenuItem
+                                                    key={`srv_${app.id}_${idx}`}
+                                                    onClick={() => {
+                                                      setServerSelection((prev) => ({ ...prev, [app.id]: srv }));
+                                                      setMenuAnchor(null);
+                                                      setMenuAppId(null);
+                                                    }}
+                                                    sx={{ background: 'inherit', '&:hover': { backgroundColor: '#1976d2' } }}
+                                                  >
+                                                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ width: '100%' }}>
+                                                      <Typography variant="body2" sx={{ color: 'white' }}>{label}</Typography>
+                                                      {isSelected && <Check sx={{ fontSize: 16, color: 'white' }} />}
+                                                    </Stack>
+                                                  </MenuItem>
+                                                );
+                                              })}
+                                            </Menu>
+                                          </>
+                                        )}
+                                      </>
+                                    )}
+                                  </Box>
                                 </Box>
                               ) : (
                                 <Button
