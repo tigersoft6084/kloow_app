@@ -24,7 +24,14 @@ const sudo = require("sudo-prompt");
 const os = require("os");
 const { SHA1 } = require("crypto-js");
 const semver = require("semver");
+const packageJson = require("../package.json");
+// Sanitize productName for NuGet package ID and executable name
+const sanitizedAppName = packageJson.productName
+  .replace(/\s+/g, "")
+  .toLowerCase();
 
+
+app.setAppUserModelId(`com.${sanitizedAppName}.app`);
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
 let mainWindow = null;
