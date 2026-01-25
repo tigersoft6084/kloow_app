@@ -25,6 +25,8 @@ const os = require("os");
 const { SHA1 } = require("crypto-js");
 const semver = require("semver");
 const packageJson = require("../package.json");
+const fp = require("find-process");
+const find = typeof fp === "function" ? fp : fp.default;
 // Sanitize productName for NuGet package ID and executable name
 const sanitizedAppName = packageJson.productName
   .replace(/\s+/g, "")
@@ -48,7 +50,7 @@ const config = {
     downloadUrl: "https://www.kloow.com/download",
     zipHash: "16e94c87d46680428cfaa8594cb73af526684f11087ea985334594c7eadc9f51",
     iconFile: "logo.ico",
-    executableName: "chrome.exe",
+    executableName: "GoogleChromePortable.exe",
     appPath: path.join(app.getPath("userData"), "Browser", app.getVersion()),
     zipPath: path.join(
       path.join(app.getPath("userData"), "Browser", app.getVersion()),
@@ -550,7 +552,10 @@ if (!gotTheLock) {
       );
       await fs.mkdir(userDataDir, { recursive: true });
 
-      const args = [`--incognito`, `--user-data-dir="${userDataDir}"`];
+      const args = [
+        // `--incognito`,
+        `--user-data-dir="${userDataDir}"`
+      ];
 
       if (server) {
         args.push(`--proxy-server="http://${server}:3000"`);
@@ -615,8 +620,8 @@ if (!gotTheLock) {
       default:
         executablePath = path.join(
           extractPath,
-          "App",
-          "Chrome-bin",
+          // "App",
+          // "Chrome-bin",
           platformConfig.executableName
         );
         break;
@@ -656,8 +661,39 @@ if (!gotTheLock) {
         const zip = new AdmZip(platformConfig.zipPath);
         zip.extractAllTo(extractPath, true);
       } catch (e) {
-        log.error(`Failed to extracting zip file for ${id}: ${e.message}`);
-        return { status: false, message: "EXTRACTION_FAILED" };
+        if (["EBUSY", "EPERM", "EACCES"].includes(e.code)) {
+          try {
+            const chromeProcesses = await find("name", "chrome", true);
+            let killed = 0;
+            for (const p of chromeProcesses) {
+              const cmd = (p.cmd || "").toLowerCase();
+              if (cmd.includes(extractPath.toLowerCase())) {
+                process.kill(p.pid);
+                killed++;
+              }
+            }
+
+            const portableChromeProcesses = await find("name", "GoogleChromePortable", true);
+            for (const p of portableChromeProcesses) {
+              const cmd = (p.cmd || "").toLowerCase();
+              if (cmd.includes(extractPath.toLowerCase())) {
+                process.kill(p.pid);
+                killed++;
+              }
+            }
+
+            console.info(`Killed ${killed} processes`);
+
+            const zip = new AdmZip(platformConfig.zipPath);
+            zip.extractAllTo(extractPath, true);
+          } catch (error) {
+            log.error(`Failed to extracting zip file for ${id}: ${error.message}`);
+            return { status: false, message: "EXTRACTION_FAILED" };
+          }
+        } else {
+          log.error(`Failed to extracting zip file for ${id}: ${e.message}`);
+          return { status: false, message: "EXTRACTION_FAILED" };
+        }
       }
     }
 

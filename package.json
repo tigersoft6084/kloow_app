@@ -63,6 +63,7 @@
     "electron-is-dev": "^3.0.1",
     "electron-log": "^5.4.1",
     "electron-squirrel-startup": "^1.0.1",
+    "find-process": "^2.0.0",
     "formik": "^2.4.6",
     "react": "^19.1.0",
     "react-device-detect": "^2.2.3",
