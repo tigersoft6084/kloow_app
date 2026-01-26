@@ -391,13 +391,13 @@ const Dashboard = () => {
     return () => window.removeEventListener("focus", onFocus);
   }, [selectedTab, frogStatus]);
 
-  const run = async (id, url, server) => {
+  const run = async (id, url, server, extensionId) => {
     try {
       if (runningStatus[id]) {
         return;
       }
       setTryRunningStatus((prev) => [...prev, id]);
-      const result = await window.electronAPI.runBrowser(id, url, server);
+      const result = await window.electronAPI.runBrowser(id, url, server, extensionId);
       if (!result.status) {
         switch (result.message) {
           case "ZIP_NOT_FOUND":
@@ -762,7 +762,7 @@ const Dashboard = () => {
                     borderRadius: "8px",
                     cursor: "pointer",
                   }}
-                  onClick={() => run(app.id, app.initUrl, app.servers?.[0])}
+                  onClick={() => run(app.id, app.initUrl, app.servers?.[0], app.extensionId ?? null)}
                 >
                   <img
                     src={getItemImg(app)}
@@ -1391,7 +1391,7 @@ const Dashboard = () => {
                                           fullWidth
                                           disableElevation
                                           variant="contained"
-                                          onClick={() => run(app.id, app.initUrl, serverSelection[app.id] ?? app.servers?.[0])}
+                                          onClick={() => run(app.id, app.initUrl, serverSelection[app.id] ?? app.servers?.[0], app.extensionId ?? null)}
                                           disabled={tryRunningStatus.includes(app.id) || !serverHealth[app.id]}
                                           sx={{
                                             flex: 1,

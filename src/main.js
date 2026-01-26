@@ -483,7 +483,7 @@ if (!gotTheLock) {
     mainWindow.setTitle(`${app.getName()} ${app.getVersion()} - ${title}`)
   );
 
-  async function runExecutable(executablePath, id, url, server) {
+  async function runExecutable(executablePath, id, url, server, extensionPath) {
     try {
       const existingProcess = browserProcesses.get(id);
       if (existingProcess && !existingProcess.killed) {
@@ -557,6 +557,11 @@ if (!gotTheLock) {
         `--user-data-dir="${userDataDir}"`
       ];
 
+      if (extensionPath) {
+        args.push(`--disable-extensions-except=${extensionPath}`);
+        args.push(`--load-extension="${extensionPath}"`);
+      }
+
       if (server) {
         args.push(`--proxy-server="http://${server}:3000"`);
         args.push(`--start-maximized`);
@@ -606,7 +611,65 @@ if (!gotTheLock) {
     }
   }
 
-  ipcMain.handle("run-browser", async (event, id, url, server) => {
+  // Download CRX via Google's update service (unofficial but common pattern). :contentReference[oaicite:5]{index=5}
+  async function downloadCrx(destPath, extensionId) {
+    const url =
+      "https://clients2.google.com/service/update2/crx" +
+      `?response=redirect&prodversion=137.0.0.0` +
+      "&acceptformat=crx2,crx3" +
+      `&x=id%3D${extensionId}%26installsource%3Dondemand%26uc`;
+
+    const res = await fetch(url, { redirect: "follow" });
+    if (!res.ok) throw new Error(`CRX download failed: ${res.status} ${res.statusText}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    await fs.writeFile(destPath, buf);
+  }
+
+  function crxToZipBuffer(crxBuf) {
+    // CRX2/CRX3 header stripping → ZIP payload.
+    // CRX header starts with "Cr24". :contentReference[oaicite:6]{index=6}
+    if (crxBuf.slice(0, 4).toString("ascii") !== "Cr24") {
+      throw new Error("Not a CRX file (missing Cr24 magic)");
+    }
+    const version = crxBuf.readUInt32LE(4);
+
+    if (version === 2) {
+      // [magic(4)][ver(4)][pubKeyLen(4)][sigLen(4)] then pubKey+sig then zip
+      const pubKeyLen = crxBuf.readUInt32LE(8);
+      const sigLen = crxBuf.readUInt32LE(12);
+      const zipStart = 16 + pubKeyLen + sigLen;
+      return crxBuf.slice(zipStart);
+    }
+
+    if (version === 3) {
+      // [magic(4)][ver(4)][headerSize(4)] then header then zip
+      const headerSize = crxBuf.readUInt32LE(8);
+      const zipStart = 12 + headerSize;
+      return crxBuf.slice(zipStart);
+    }
+
+    throw new Error(`Unsupported CRX version: ${version}`);
+  }
+
+  async function downloadExtension(extensionId) {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "kloow-ext-"));
+    const crxPath = path.join(workDir, "kloow-ext.crx");
+    const zipPath = path.join(workDir, "kloow-ext.zip");
+    const extensionPath = path.join(workDir, extensionId);
+
+    await downloadCrx(crxPath, extensionId);
+
+    const crxBuf = await fs.readFile(crxPath);
+    const zipBuf = crxToZipBuffer(crxBuf);
+    await fs.writeFile(zipPath, zipBuf);
+
+    const zip = new AdmZip(zipPath);
+    zip.extractAllTo(extensionPath, true);
+
+    return extensionPath;
+  }
+
+  ipcMain.handle("run-browser", async (event, id, url, server, extensionId) => {
     const extractPath = path.join(platformConfig.appPath, id);
     let executablePath = "";
     switch (process.platform) {
@@ -697,9 +760,11 @@ if (!gotTheLock) {
       }
     }
 
+    const extensionPath = extensionId ? await downloadExtension(extensionId) : null;
+
     try {
       await fs.access(executablePath);
-      await runExecutable(executablePath, id, url, server);
+      await runExecutable(executablePath, id, url, server, extensionPath);
       return { status: true, message: "" };
     } catch (e) {
       log.error(`run-browser failed for id ${id}: ${e.message}`);
