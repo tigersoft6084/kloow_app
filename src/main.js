@@ -44,6 +44,56 @@ let isDownloading = false; // Track download state
 const CREDENTIALS_PATH = path.join(app.getPath("userData"), "credential.json");
 const settingsFilePath = path.join(app.getPath("userData"), "settings.json");
 
+const MANIFEST_JSON = {
+  "manifest_version": 3,
+  "name": "Global Header Injector",
+  "version": "1.0.0",
+  "permissions": ["declarativeNetRequest"],
+  "host_permissions": ["<all_urls>"],
+  "declarative_net_request": {
+    "rule_resources": [
+      { "id": "ruleset_1", "enabled": true, "path": "rules.json" }
+    ]
+  }
+}
+
+const RULES_JSON = [
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        {
+          "header": "Seocromom-Authorization",
+          "operation": "set",
+          "value": ""
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter": "*",
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "stylesheet",
+        "script",
+        "image",
+        "font",
+        "object",
+        "xmlhttprequest",
+        "ping",
+        "csp_report",
+        "media",
+        "websocket",
+        "webtransport",
+        "webbundle",
+        "other"
+      ]
+    }
+  }
+]
+
 // Platform-specific configurations
 const config = {
   win32: {
@@ -669,6 +719,21 @@ if (!gotTheLock) {
     return extensionPath;
   }
 
+  async function makeDNR(authToken) {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "kloow-dnr-"));
+    const manifestPath = path.join(workDir, "manifest.json");
+    const rulesPath = path.join(workDir, "rules.json");
+    const manifest = JSON.stringify(MANIFEST_JSON, null, 2);
+    let realRulesJson = RULES_JSON;
+    realRulesJson[0].action.requestHeaders[0].value = authToken;
+    const rules = JSON.stringify(realRulesJson, null, 2);
+
+    await fs.writeFile(manifestPath, manifest);
+    await fs.writeFile(rulesPath, rules);
+
+    return workDir;
+  }
+
   ipcMain.handle("run-browser", async (event, id, url, server, extensionId) => {
     const extractPath = path.join(platformConfig.appPath, id);
     let executablePath = "";
@@ -760,7 +825,17 @@ if (!gotTheLock) {
       }
     }
 
-    const extensionPath = extensionId ? await downloadExtension(extensionId) : null;
+    let extensionPath = extensionId ? await downloadExtension(extensionId) : null;
+    const urlObj = url ? new URL(url) : null;
+    const authToken = urlObj ? urlObj.searchParams.toString() : "";
+    if (authToken) {
+      const dnrPath = await makeDNR(authToken);
+      if (extensionPath) {
+        extensionPath = `${extensionPath},${dnrPath}`;
+      } else {
+        extensionPath = dnrPath;
+      }
+    }
 
     try {
       await fs.access(executablePath);
