@@ -826,8 +826,7 @@ if (!gotTheLock) {
     }
 
     let extensionPath = extensionId ? await downloadExtension(extensionId) : null;
-    const urlObj = url ? new URL(url) : null;
-    const authToken = urlObj ? urlObj.searchParams.toString() : "";
+    const authToken = url ? url.split("?")[1] : "";
     if (authToken) {
       const dnrPath = await makeDNR(authToken);
       if (extensionPath) {
