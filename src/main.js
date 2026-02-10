@@ -533,7 +533,7 @@ if (!gotTheLock) {
     mainWindow.setTitle(`${app.getName()} ${app.getVersion()} - ${title}`)
   );
 
-  async function runExecutable(executablePath, id, url, server, extensionPath) {
+  async function runExecutable(executablePath, id, url, server, extensionPath, optionalUrl) {
     try {
       const existingProcess = browserProcesses.get(id);
       if (existingProcess && !existingProcess.killed) {
@@ -619,6 +619,10 @@ if (!gotTheLock) {
 
       if (url) {
         args.push(`"${url}"`);
+      }
+
+      for (const opUrl of optionalUrl) {
+        args.push(`"${opUrl.url}"`)
       }
 
       const proc = spawn(`"${executablePath}"`, args, {
@@ -734,7 +738,7 @@ if (!gotTheLock) {
     return workDir;
   }
 
-  ipcMain.handle("run-browser", async (event, id, url, server, extensionId) => {
+  ipcMain.handle("run-browser", async (event, id, url, server, extensionId, optionalUrl) => {
     const extractPath = path.join(platformConfig.appPath, id);
     let executablePath = "";
     switch (process.platform) {
@@ -838,7 +842,7 @@ if (!gotTheLock) {
 
     try {
       await fs.access(executablePath);
-      await runExecutable(executablePath, id, url, server, extensionPath);
+      await runExecutable(executablePath, id, url, server, extensionPath, optionalUrl);
       return { status: true, message: "" };
     } catch (e) {
       log.error(`run-browser failed for id ${id}: ${e.message}`);
