@@ -346,7 +346,7 @@ if (!gotTheLock) {
       BrowserWindow.getAllWindows().forEach((win) =>
         win.webContents.send("download-status", {
           status: "error",
-          message: "Cannot quit while download is in progress.",
+          message: "Please wait for the download to finish before closing the app.",
         })
       );
       return;
@@ -934,7 +934,7 @@ if (!gotTheLock) {
             BrowserWindow.getAllWindows().forEach((win) =>
               win.webContents.send("download-status", {
                 status: "completed",
-                message: "Download completed successfully.",
+                message: "Download complete.",
               })
             );
           },
@@ -1114,13 +1114,13 @@ if (!gotTheLock) {
     }
 
     // -----------------------------------------
-    // Unsupported OS
+    // Unsupported platform
     // -----------------------------------------
     return {
       os: platform,
       seoSpider: null,
       logAnalyser: null,
-      error: "Unsupported OS"
+      error: "Your operating system is not supported."
     };
   }
 
@@ -1488,7 +1488,7 @@ if (!gotTheLock) {
           windows.forEach((win) =>
             win.webContents.send("update-download-status", {
               status: "downloading",
-              message: `Downloading: ${Math.round(percent * 100)}%`,
+              message: `Downloading update: ${Math.round(percent * 100)}%`,
               percent: Math.round(percent * 100),
             })
           );
@@ -1560,7 +1560,7 @@ if (!gotTheLock) {
             windows.forEach((win) =>
               win.webContents.send("update-download-status", {
                 status: "error",
-                message: `Failed to launch installer: ${installError.message}`,
+                message: "Couldn't start the installer.",
               })
             );
           }
@@ -1571,7 +1571,7 @@ if (!gotTheLock) {
           windows.forEach((win) =>
             win.webContents.send("update-download-status", {
               status: "error",
-              message: `Download failed: ${error.message}`,
+              message: "Download failed. Please try again.",
             })
           );
         },

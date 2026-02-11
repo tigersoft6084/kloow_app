@@ -90,7 +90,7 @@ const Signup = () => {
           const response = await signup(values);
           setSubmitting(false);
           if (response.status) {
-            successMessage("Success to register. Please login.");
+            successMessage("Account created successfully. Please log in.");
             navigate("/auth/login");
           } else {
             errorMessage(response.message);
@@ -325,7 +325,7 @@ const Signup = () => {
                       "&:hover": { textDecoration: "underline" },
                     }}
                   >
-                    I already have an account. Login
+                    I already have an account. Log in
                   </Typography>
                 </Stack>
               </Grid>

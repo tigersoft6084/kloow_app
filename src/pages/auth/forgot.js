@@ -31,7 +31,7 @@ const ForgotPassword = () => {
   const { successMessage, errorMessage } = useSnackbar();
 
   useEffect(() => {
-    window.electronAPI.setTitle("Forget Password");
+    window.electronAPI.setTitle("Forgot Password");
   }, []);
 
   return (
@@ -64,7 +64,7 @@ const ForgotPassword = () => {
           const response = await forgotPassword(values);
           setSubmitting(false);
           if (response.status) {
-            successMessage("The code was sent to you email address.");
+            successMessage("A code has been sent to your email address.");
             navigate("/auth/reset");
           } else {
             errorMessage(response.message);
@@ -84,7 +84,7 @@ const ForgotPassword = () => {
             <Grid container spacing={3}>
               <Grid size={{ xs: 12 }}>
                 <Typography variant="h5" textAlign="center">
-                  <b>Forget Password?</b>
+                  <b>Forgot your password?</b>
                 </Typography>
               </Grid>
               <Grid size={{ xs: 12 }}>

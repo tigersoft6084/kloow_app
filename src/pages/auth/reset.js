@@ -60,7 +60,7 @@ const ResetPassword = () => {
           setSubmitting(false);
           if (response.status) {
             successMessage(
-              "Success to reset. A temporary password has been sent to your email address."
+              "Password reset successful. A temporary password has been sent to your email address."
             );
             navigate("/auth/login");
           } else {
@@ -86,7 +86,7 @@ const ResetPassword = () => {
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <Typography textAlign="center">
-                  Code has sent to sidiat34@gmail.com
+                  A code has been sent to your email address.
                 </Typography>
               </Grid>
               <Grid size={{ xs: 12 }}>

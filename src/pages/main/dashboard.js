@@ -59,22 +59,22 @@ import useAuth from "../../hooks/useAuth";
 
 const DownloadMessage = (
   <Typography variant="body1" textAlign="center" color="white">
-    We recommend downloading updates now to
-    <br /> ensure proper operation.
+    We recommend downloading the browser update now
+    <br /> for best performance.
   </Typography>
 );
 
 const ExtractFailedMessage = (
   <Typography variant="body1" textAlign="center" color="white">
-    Failed to run the browser. <br />
-    Please download the browser again.
+    The browser could not start. <br />
+    Please download it again.
   </Typography>
 );
 
 const HashMismatchMessage = (
   <Typography variant="body1" textAlign="center" color="white">
-    The browser is corrupted. <br />
-    Please download the browser again.
+    The browser files are corrupted. <br />
+    Please download again.
   </Typography>
 );
 
@@ -319,7 +319,7 @@ const Dashboard = () => {
           if (!updateNotificationShown) {
             setShowUpdateDialog(true);
             setUpdateNotificationShown(true);
-            successMessage(`Update available: v${result.latestVersion}`);
+            successMessage(`Update available (v${result.latestVersion})`);
           }
         } else {
           setUpdate(false);
@@ -358,7 +358,7 @@ const Dashboard = () => {
       successMessage(`Update to version ${latestVersion} started downloading`);
       setIsUpdateDownloading(false);
     } catch (error) {
-      errorMessage(`Failed to update`);
+      errorMessage("Update failed. Please try again.");
       setIsUpdateDownloading(false);
     }
   }
@@ -413,9 +413,7 @@ const Dashboard = () => {
             setOpen(true);
             break;
           default:
-            errorMessage(
-              `Failed to run browser for id ${id}: ${result.message}`
-            );
+            errorMessage("Couldn't launch the browser. Please try again.");
             break;
         }
       } else {
@@ -423,9 +421,7 @@ const Dashboard = () => {
       }
       setTryRunningStatus((prev) => prev.filter((e) => e !== id));
     } catch (error) {
-      errorMessage(
-        `Failed to run the executable for id ${id}: ${error.message}`
-      );
+      errorMessage("Couldn't start the application. Please try again.");
     }
   };
 
@@ -438,7 +434,7 @@ const Dashboard = () => {
       }
       setTryRunningStatus((prev) => prev.filter((e) => e !== id));
     } catch (error) {
-      errorMessage(`Failed to stop the browser for id ${id}: ${error.message}`);
+      errorMessage("Couldn't stop the browser. Please try again.");
     }
   };
 
@@ -454,16 +450,16 @@ const Dashboard = () => {
       setIsSfssDownloading(true);
       const activated = await window.electronAPI.activateSfSeoSpider();
       if (!activated) {
-        errorMessage("Failed to activate Screaming Frog SEO Spider");
+        errorMessage("Couldn't activate Screaming Frog SEO Spider.");
         setIsSfssDownloading(false);
         return;
       }
 
       const licensed = await window.electronAPI.licenseSFSS();
       if (!licensed) {
-        errorMessage("Failed to license Screaming Frog SEO Spider");
+        errorMessage("Couldn't apply the Screaming Frog SEO Spider license.");
       } else {
-        successMessage("Successfully activated Screaming Frog SEO Spider");
+        successMessage("Screaming Frog SEO Spider activated successfully.");
       }
       setIsSfssDownloading(false);
     } catch (error) {
@@ -477,16 +473,16 @@ const Dashboard = () => {
       setIsSflaDownloading(true);
       const activated = await window.electronAPI.activateSfLogAnalyser();
       if (!activated) {
-        errorMessage("Failed to activate Screaming Frog Log File Analyser");
+        errorMessage("Couldn't activate Screaming Frog Log File Analyser.");
         setIsSflaDownloading(false);
         return;
       }
 
       const licensed = await window.electronAPI.licenseSFLA();
       if (!licensed) {
-        errorMessage("Failed to license Screaming Frog Log File Analyser");
+        errorMessage("Couldn't apply the Screaming Frog Log File Analyser license.");
       } else {
-        successMessage("Successfully activated Screaming Frog Log File Analyser");
+        successMessage("Screaming Frog Log File Analyser activated successfully.");
       }
       setIsSflaDownloading(false);
     } catch (error) {
@@ -621,7 +617,7 @@ const Dashboard = () => {
             }}
           />
           <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Tooltip title="Reload Apps">
+            <Tooltip title="Refresh apps">
               <IconButton
                 onClick={async () => {
                   setLoading(true);
@@ -703,7 +699,7 @@ const Dashboard = () => {
             }}
           >
             <Typography sx={{ color: "white", px: 2, py: 1 }}>
-              PROFILE SETTINGS
+              Profile settings
             </Typography>
             <MenuItem
               onClick={() => {
@@ -813,7 +809,7 @@ const Dashboard = () => {
                 >
                   <MenuItem sx={{ pointerEvents: "none" }}>
                     <Typography variant="body2" sx={{ color: "white" }}>
-                      ADD A FAVORITE
+                      Add a favorite
                     </Typography>
                   </MenuItem>
                   {appList
@@ -939,7 +935,7 @@ const Dashboard = () => {
                     >
                       <Typography variant="body2" color="white">
                         {sortOrder === "none"
-                          ? "None"
+                          ? "Default"
                           : sortOrder === "az"
                             ? "A-Z"
                             : "Z-A"}
@@ -1002,10 +998,10 @@ const Dashboard = () => {
                           >
                             <Typography variant="body2" color="white">
                               {order === "none"
-                                ? "None"
+                                ? "Default"
                                 : order === "az"
-                                  ? "Sorting A-Z"
-                                  : "Sorting Z-A"}
+                                  ? "A to Z"
+                                  : "Z to A"}
                             </Typography>
                             <Stack
                               alignItems="center"
@@ -1114,7 +1110,7 @@ const Dashboard = () => {
                               }}
                               disabled={isSfssDownloading || isSflaDownloading || sfInfo.error || !sfInfo.seoSpider || parseFloat(sfInfo.seoSpider) !== parseFloat(sf.seo_spider)}
                             >
-                              {isSfssDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === parseFloat(sf.seo_spider) ? ("Activate") : (`Install v${sf.seo_spider} (Default Path)`)}
+                              {isSfssDownloading ? ("Downloading...") : sfInfo.error ? ("Your operating system is not supported.") : sfInfo.seoSpider && parseFloat(sfInfo.seoSpider) === parseFloat(sf.seo_spider) ? ("Activate") : (`Install v${sf.seo_spider} (Default Path)`)}
                             </Button>
                           ) : (
                             <Button
@@ -1214,7 +1210,7 @@ const Dashboard = () => {
                               }}
                               disabled={isSflaDownloading || isSfssDownloading || sfInfo.error || !sfInfo.logAnalyser || parseFloat(sfInfo.logAnalyser) !== parseFloat(sf.log_analyser)}
                             >
-                              {isSflaDownloading ? ("Downloading...") : sfInfo.error ? ("Unsupported OS") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === parseFloat(sf.log_analyser) ? ("Activate") : (`Install v${sf.log_analyser} (Default Path)`)}
+                              {isSflaDownloading ? ("Downloading...") : sfInfo.error ? ("Your operating system is not supported.") : sfInfo.logAnalyser && parseFloat(sfInfo.logAnalyser) === parseFloat(sf.log_analyser) ? ("Activate") : (`Install v${sf.log_analyser} (Default Path)`)}
                             </Button>
                           ) : (
                             <Button
@@ -1506,7 +1502,7 @@ const Dashboard = () => {
                         return true;
                       })?.length === 0 && (
                         <Grid size={{ xs: 12 }}>
-                          <Typography color="white">Nothing to Show</Typography>
+                          <Typography color="white">Nothing to show</Typography>
                         </Grid>
                       )}
                   </Grid>
@@ -1592,7 +1588,7 @@ const Dashboard = () => {
         <DialogContent sx={{ pt: 2 }}>
           <Stack spacing={2}>
             <Typography variant="body1" color="#ccc">
-              A new version <strong>v{latestVersion}</strong> is available for download.
+              Version <strong>v{latestVersion}</strong> is available to download.
             </Typography>
             {updateDownloading ? (
               <Stack spacing={1}>
@@ -1647,7 +1643,7 @@ const Dashboard = () => {
               "&:disabled": { backgroundColor: "#666", color: "#999" },
             }}
           >
-            {updateDownloading || isUpdateDownloading ? "Downloading..." : "Download & Update"}
+            {updateDownloading || isUpdateDownloading ? "Downloading..." : "Download and update"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1710,7 +1706,7 @@ const Dashboard = () => {
                 <Stack spacing={2}>
                   <Box>
                     <Typography variant="body2" color="white">
-                      Update available: v{latestVersion}
+                      Update available (v{latestVersion})
                     </Typography>
                     {updateDownloading && (
                       <>
@@ -1744,12 +1740,12 @@ const Dashboard = () => {
                       },
                     }}
                   >
-                    {updateDownloading || isUpdateDownloading ? "Downloading..." : "Download & Update"}
+                    {updateDownloading || isUpdateDownloading ? "Downloading..." : "Download and update"}
                   </Button>
                 </Stack>
               ) : (
                 <Typography variant="body2" color="#888">
-                  You are running the latest version
+                  You're using the latest version.
                 </Typography>
               )}
             </Stack>
@@ -1796,7 +1792,7 @@ const Dashboard = () => {
                 </Box>
               </Stack>
               <Typography variant="body2" color="white">
-                Membership expires on{" "}
+                Membership expires on:{" "}
                 {new Date(user.membership_expire_time).toLocaleDateString() ||
                   "N/A"}
               </Typography>
