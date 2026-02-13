@@ -32,9 +32,12 @@ module.exports = {
     },
     osxNotarize: {
       tool: "notarytool",
-      appleId: process.env.APPLE_ID,
-      appleIdPassword: process.env.APPLE_ID_PASSWORD,
-      teamId: process.env.APPLE_TEAM_ID
+      appleApiKey: process.env.APPLE_API_KEY_PATH,
+      appleApiKeyId: process.env.APPLE_API_KEY_ID,
+      appleApiIssuer: process.env.APPLE_API_ISSUER_ID,
+      // appleId: process.env.APPLE_ID,
+      // appleIdPassword: process.env.APPLE_ID_PASSWORD,
+      // teamId: process.env.APPLE_TEAM_ID
     }
   },
   rebuildConfig: {},
