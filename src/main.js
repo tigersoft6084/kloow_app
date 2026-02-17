@@ -607,6 +607,18 @@ if (!gotTheLock) {
         `--user-data-dir="${userDataDir}"`
       ];
 
+      const urlsToOpen = [];
+      if (url) {
+        urlsToOpen.push(url);
+      }
+
+      const safeOptionalUrl = Array.isArray(optionalUrl) ? optionalUrl : [];
+      for (const opUrl of safeOptionalUrl) {
+        if (opUrl && typeof opUrl.url === "string" && opUrl.url.length > 0) {
+          urlsToOpen.push(opUrl.url);
+        }
+      }
+
       if (extensionPath) {
         args.push(`--disable-extensions-except="${extensionPath}"`);
         args.push(`--load-extension="${extensionPath}"`);
@@ -617,12 +629,10 @@ if (!gotTheLock) {
         args.push(`--start-maximized`);
       }
 
-      if (url) {
-        args.push(`"${url}"`);
-      }
-
-      for (const opUrl of optionalUrl) {
-        args.push(`"${opUrl.url}"`)
+      if (!extensionPath) {
+        for (const targetUrl of urlsToOpen) {
+          args.push(`"${targetUrl}"`);
+        }
       }
 
       const proc = spawn(`"${executablePath}"`, args, {
@@ -633,6 +643,42 @@ if (!gotTheLock) {
 
       proc.on("spawn", () => {
         log.info(`Process spawned successfully for id ${id}, PID: ${proc.pid}`);
+
+        if (extensionPath && urlsToOpen.length > 0) {
+          const EXTENSION_LOAD_WAIT_MS = 5000;
+          setTimeout(() => {
+            if (browserProcesses.get(id) !== proc || proc.killed) {
+              return;
+            }
+
+            const deferredArgs = [
+              `--user-data-dir="${userDataDir}"`,
+              `--disable-extensions-except="${extensionPath}"`,
+              `--load-extension="${extensionPath}"`,
+            ];
+
+            if (server) {
+              deferredArgs.push(`--proxy-server="http://${server}:3000"`);
+              deferredArgs.push(`--start-maximized`);
+            }
+
+            deferredArgs.push(
+              ...urlsToOpen.map((targetUrl) => `"${targetUrl}"`),
+            );
+
+            const deferredOpenProc = spawn(`"${executablePath}"`, deferredArgs, {
+              windowsHide: process.platform === "win32",
+              shell: true,
+            });
+
+            deferredOpenProc.on("error", (err) => {
+              log.error(
+                `Error opening deferred URLs for id ${id}: ${err.message}`
+              );
+            });
+          }, EXTENSION_LOAD_WAIT_MS);
+        }
+
         BrowserWindow.getAllWindows().forEach((win) =>
           win.webContents.send("browser-status", { id, running: true })
         );
