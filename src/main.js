@@ -608,7 +608,7 @@ if (!gotTheLock) {
       ];
 
       if (extensionPath) {
-        args.push(`--disable-extensions-except=${extensionPath}`);
+        args.push(`--disable-extensions-except="${extensionPath}"`);
         args.push(`--load-extension="${extensionPath}"`);
       }
 
