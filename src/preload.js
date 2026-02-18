@@ -15,8 +15,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   closeApp: () => ipcRenderer.send("close-app"),
   checkForUpdates: () => ipcRenderer.send("check-for-updates"),
   downloadBrowser: () => ipcRenderer.invoke("download-browser"),
-  runBrowser: (id, url, server, extensionId, optionalUrl) =>
-    ipcRenderer.invoke("run-browser", id, url, server, extensionId, optionalUrl),
+  runBrowser: (id, url, server, extensionId) =>
+    ipcRenderer.invoke("run-browser", id, url, server, extensionId),
   stopBrowser: (id) => ipcRenderer.invoke("stop-browser", id),
   onBrowserStatus: (callback) => ipcRenderer.on("browser-status", callback),
   credentialStore: (account, password) =>
