@@ -25,6 +25,8 @@ const os = require("os");
 const { SHA1 } = require("crypto-js");
 const semver = require("semver");
 const packageJson = require("../package.json");
+const fp = require("find-process");
+const find = typeof fp === "function" ? fp : fp.default;
 // Sanitize productName for NuGet package ID and executable name
 const sanitizedAppName = packageJson.productName
   .replace(/\s+/g, "")
@@ -42,13 +44,63 @@ let isDownloading = false; // Track download state
 const CREDENTIALS_PATH = path.join(app.getPath("userData"), "credential.json");
 const settingsFilePath = path.join(app.getPath("userData"), "settings.json");
 
+const MANIFEST_JSON = {
+  "manifest_version": 3,
+  "name": "Global Header Injector",
+  "version": "1.0.0",
+  "permissions": ["declarativeNetRequest"],
+  "host_permissions": ["<all_urls>"],
+  "declarative_net_request": {
+    "rule_resources": [
+      { "id": "ruleset_1", "enabled": true, "path": "rules.json" }
+    ]
+  }
+}
+
+const RULES_JSON = [
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        {
+          "header": "Seocromom-Authorization",
+          "operation": "set",
+          "value": ""
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter": "*",
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "stylesheet",
+        "script",
+        "image",
+        "font",
+        "object",
+        "xmlhttprequest",
+        "ping",
+        "csp_report",
+        "media",
+        "websocket",
+        "webtransport",
+        "webbundle",
+        "other"
+      ]
+    }
+  }
+]
+
 // Platform-specific configurations
 const config = {
   win32: {
     downloadUrl: "https://www.kloow.com/download",
     zipHash: "16e94c87d46680428cfaa8594cb73af526684f11087ea985334594c7eadc9f51",
     iconFile: "logo.ico",
-    executableName: "chrome.exe",
+    executableName: "GoogleChromePortable.exe",
     appPath: path.join(app.getPath("userData"), "Browser", app.getVersion()),
     zipPath: path.join(
       path.join(app.getPath("userData"), "Browser", app.getVersion()),
@@ -294,7 +346,7 @@ if (!gotTheLock) {
       BrowserWindow.getAllWindows().forEach((win) =>
         win.webContents.send("download-status", {
           status: "error",
-          message: "Cannot quit while download is in progress.",
+          message: "Please wait for the download to finish before closing the app.",
         })
       );
       return;
@@ -481,7 +533,7 @@ if (!gotTheLock) {
     mainWindow.setTitle(`${app.getName()} ${app.getVersion()} - ${title}`)
   );
 
-  async function runExecutable(executablePath, id, url, server) {
+  async function runExecutable(executablePath, id, url, server, extensionPath, optionalUrl) {
     try {
       const existingProcess = browserProcesses.get(id);
       if (existingProcess && !existingProcess.killed) {
@@ -550,15 +602,37 @@ if (!gotTheLock) {
       );
       await fs.mkdir(userDataDir, { recursive: true });
 
-      const args = [`--incognito`, `--user-data-dir="${userDataDir}"`];
+      const args = [
+        // `--incognito`,
+        `--user-data-dir="${userDataDir}"`
+      ];
+
+      const urlsToOpen = [];
+      if (url) {
+        urlsToOpen.push(url);
+      }
+
+      const safeOptionalUrl = Array.isArray(optionalUrl) ? optionalUrl : [];
+      for (const opUrl of safeOptionalUrl) {
+        if (opUrl && typeof opUrl.url === "string" && opUrl.url.length > 0) {
+          urlsToOpen.push(opUrl.url);
+        }
+      }
+
+      if (extensionPath) {
+        args.push(`--disable-extensions-except="${extensionPath}"`);
+        args.push(`--load-extension="${extensionPath}"`);
+      }
 
       if (server) {
         args.push(`--proxy-server="http://${server}:3000"`);
         args.push(`--start-maximized`);
       }
 
-      if (url) {
-        args.push(`"${url}"`);
+      if (!extensionPath) {
+        for (const targetUrl of urlsToOpen) {
+          args.push(`"${targetUrl}"`);
+        }
       }
 
       const proc = spawn(`"${executablePath}"`, args, {
@@ -569,6 +643,42 @@ if (!gotTheLock) {
 
       proc.on("spawn", () => {
         log.info(`Process spawned successfully for id ${id}, PID: ${proc.pid}`);
+
+        if (extensionPath && urlsToOpen.length > 0) {
+          const EXTENSION_LOAD_WAIT_MS = 5000;
+          setTimeout(() => {
+            if (browserProcesses.get(id) !== proc || proc.killed) {
+              return;
+            }
+
+            const deferredArgs = [
+              `--user-data-dir="${userDataDir}"`,
+              `--disable-extensions-except="${extensionPath}"`,
+              `--load-extension="${extensionPath}"`,
+            ];
+
+            if (server) {
+              deferredArgs.push(`--proxy-server="http://${server}:3000"`);
+              deferredArgs.push(`--start-maximized`);
+            }
+
+            deferredArgs.push(
+              ...urlsToOpen.map((targetUrl) => `"${targetUrl}"`),
+            );
+
+            const deferredOpenProc = spawn(`"${executablePath}"`, deferredArgs, {
+              windowsHide: process.platform === "win32",
+              shell: true,
+            });
+
+            deferredOpenProc.on("error", (err) => {
+              log.error(
+                `Error opening deferred URLs for id ${id}: ${err.message}`
+              );
+            });
+          }, EXTENSION_LOAD_WAIT_MS);
+        }
+
         BrowserWindow.getAllWindows().forEach((win) =>
           win.webContents.send("browser-status", { id, running: true })
         );
@@ -601,7 +711,80 @@ if (!gotTheLock) {
     }
   }
 
-  ipcMain.handle("run-browser", async (event, id, url, server) => {
+  // Download CRX via Google's update service (unofficial but common pattern). :contentReference[oaicite:5]{index=5}
+  async function downloadCrx(destPath, extensionId) {
+    const url =
+      "https://clients2.google.com/service/update2/crx" +
+      `?response=redirect&prodversion=137.0.0.0` +
+      "&acceptformat=crx2,crx3" +
+      `&x=id%3D${extensionId}%26installsource%3Dondemand%26uc`;
+
+    const res = await fetch(url, { redirect: "follow" });
+    if (!res.ok) throw new Error(`CRX download failed: ${res.status} ${res.statusText}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    await fs.writeFile(destPath, buf);
+  }
+
+  function crxToZipBuffer(crxBuf) {
+    // CRX2/CRX3 header stripping → ZIP payload.
+    // CRX header starts with "Cr24". :contentReference[oaicite:6]{index=6}
+    if (crxBuf.slice(0, 4).toString("ascii") !== "Cr24") {
+      throw new Error("Not a CRX file (missing Cr24 magic)");
+    }
+    const version = crxBuf.readUInt32LE(4);
+
+    if (version === 2) {
+      // [magic(4)][ver(4)][pubKeyLen(4)][sigLen(4)] then pubKey+sig then zip
+      const pubKeyLen = crxBuf.readUInt32LE(8);
+      const sigLen = crxBuf.readUInt32LE(12);
+      const zipStart = 16 + pubKeyLen + sigLen;
+      return crxBuf.slice(zipStart);
+    }
+
+    if (version === 3) {
+      // [magic(4)][ver(4)][headerSize(4)] then header then zip
+      const headerSize = crxBuf.readUInt32LE(8);
+      const zipStart = 12 + headerSize;
+      return crxBuf.slice(zipStart);
+    }
+
+    throw new Error(`Unsupported CRX version: ${version}`);
+  }
+
+  async function downloadExtension(extensionId) {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "kloow-ext-"));
+    const crxPath = path.join(workDir, "kloow-ext.crx");
+    const zipPath = path.join(workDir, "kloow-ext.zip");
+    const extensionPath = path.join(workDir, extensionId);
+
+    await downloadCrx(crxPath, extensionId);
+
+    const crxBuf = await fs.readFile(crxPath);
+    const zipBuf = crxToZipBuffer(crxBuf);
+    await fs.writeFile(zipPath, zipBuf);
+
+    const zip = new AdmZip(zipPath);
+    zip.extractAllTo(extensionPath, true);
+
+    return extensionPath;
+  }
+
+  async function makeDNR(authToken) {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "kloow-dnr-"));
+    const manifestPath = path.join(workDir, "manifest.json");
+    const rulesPath = path.join(workDir, "rules.json");
+    const manifest = JSON.stringify(MANIFEST_JSON, null, 2);
+    let realRulesJson = RULES_JSON;
+    realRulesJson[0].action.requestHeaders[0].value = authToken;
+    const rules = JSON.stringify(realRulesJson, null, 2);
+
+    await fs.writeFile(manifestPath, manifest);
+    await fs.writeFile(rulesPath, rules);
+
+    return workDir;
+  }
+
+  ipcMain.handle("run-browser", async (event, id, url, server, extensionId, optionalUrl) => {
     const extractPath = path.join(platformConfig.appPath, id);
     let executablePath = "";
     switch (process.platform) {
@@ -615,8 +798,8 @@ if (!gotTheLock) {
       default:
         executablePath = path.join(
           extractPath,
-          "App",
-          "Chrome-bin",
+          // "App",
+          // "Chrome-bin",
           platformConfig.executableName
         );
         break;
@@ -656,14 +839,56 @@ if (!gotTheLock) {
         const zip = new AdmZip(platformConfig.zipPath);
         zip.extractAllTo(extractPath, true);
       } catch (e) {
-        log.error(`Failed to extracting zip file for ${id}: ${e.message}`);
-        return { status: false, message: "EXTRACTION_FAILED" };
+        if (["EBUSY", "EPERM", "EACCES"].includes(e.code)) {
+          try {
+            const chromeProcesses = await find("name", "chrome", true);
+            let killed = 0;
+            for (const p of chromeProcesses) {
+              const cmd = (p.cmd || "").toLowerCase();
+              if (cmd.includes(extractPath.toLowerCase())) {
+                process.kill(p.pid);
+                killed++;
+              }
+            }
+
+            const portableChromeProcesses = await find("name", "GoogleChromePortable", true);
+            for (const p of portableChromeProcesses) {
+              const cmd = (p.cmd || "").toLowerCase();
+              if (cmd.includes(extractPath.toLowerCase())) {
+                process.kill(p.pid);
+                killed++;
+              }
+            }
+
+            console.info(`Killed ${killed} processes`);
+
+            const zip = new AdmZip(platformConfig.zipPath);
+            zip.extractAllTo(extractPath, true);
+          } catch (error) {
+            log.error(`Failed to extracting zip file for ${id}: ${error.message}`);
+            return { status: false, message: "EXTRACTION_FAILED" };
+          }
+        } else {
+          log.error(`Failed to extracting zip file for ${id}: ${e.message}`);
+          return { status: false, message: "EXTRACTION_FAILED" };
+        }
+      }
+    }
+
+    let extensionPath = extensionId ? await downloadExtension(extensionId) : null;
+    const authToken = url ? url.split("?")[1] : "";
+    if (authToken) {
+      const dnrPath = await makeDNR(authToken);
+      if (extensionPath) {
+        extensionPath = `${extensionPath},${dnrPath}`;
+      } else {
+        extensionPath = dnrPath;
       }
     }
 
     try {
       await fs.access(executablePath);
-      await runExecutable(executablePath, id, url, server);
+      await runExecutable(executablePath, id, url, server, extensionPath, optionalUrl);
       return { status: true, message: "" };
     } catch (e) {
       log.error(`run-browser failed for id ${id}: ${e.message}`);
@@ -755,7 +980,7 @@ if (!gotTheLock) {
             BrowserWindow.getAllWindows().forEach((win) =>
               win.webContents.send("download-status", {
                 status: "completed",
-                message: "Download completed successfully.",
+                message: "Download complete.",
               })
             );
           },
@@ -935,13 +1160,13 @@ if (!gotTheLock) {
     }
 
     // -----------------------------------------
-    // Unsupported OS
+    // Unsupported platform
     // -----------------------------------------
     return {
       os: platform,
       seoSpider: null,
       logAnalyser: null,
-      error: "Unsupported OS"
+      error: "Your operating system is not supported."
     };
   }
 
@@ -1309,7 +1534,7 @@ if (!gotTheLock) {
           windows.forEach((win) =>
             win.webContents.send("update-download-status", {
               status: "downloading",
-              message: `Downloading: ${Math.round(percent * 100)}%`,
+              message: `Downloading update: ${Math.round(percent * 100)}%`,
               percent: Math.round(percent * 100),
             })
           );
@@ -1381,7 +1606,7 @@ if (!gotTheLock) {
             windows.forEach((win) =>
               win.webContents.send("update-download-status", {
                 status: "error",
-                message: `Failed to launch installer: ${installError.message}`,
+                message: "Couldn't start the installer.",
               })
             );
           }
@@ -1392,7 +1617,7 @@ if (!gotTheLock) {
           windows.forEach((win) =>
             win.webContents.send("update-download-status", {
               status: "error",
-              message: `Download failed: ${error.message}`,
+              message: "Download failed. Please try again.",
             })
           );
         },

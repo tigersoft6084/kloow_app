@@ -3,7 +3,7 @@ import { SHOW_SNACKBAR, HIDE_SNACKBAR } from "./actions";
 
 export const initialState = {
   open: false,
-  message: "Something went wrong",
+  message: "Something went wrong. Please try again.",
   type: SnackbarType.Error,
 };
 

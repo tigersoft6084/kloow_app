@@ -105,8 +105,8 @@ const Layout = ({ children }) => {
                 ) : (
                   <Stack spacing={1}>
                     <Typography variant="body1" color="white">
-                      An error occurred while checking for updates. Please try
-                      again later or contact support.
+                      We couldn't check for updates. Please try again later or
+                      contact support.
                     </Typography>
                     <Typography color="error" variant="body2">
                       {message}

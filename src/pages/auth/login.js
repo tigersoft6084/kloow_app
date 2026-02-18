@@ -128,7 +128,7 @@ const Login = () => {
             mb: 4,
           }}
         >
-          Log In back to
+          Log in to
           <br />
           your account
         </Typography>
@@ -147,7 +147,7 @@ const Login = () => {
             const response = await login(values);
             setSubmitting(false);
             if (response.status) {
-              successMessage("Success to login.");
+              successMessage("Logged in successfully.");
               navigate("/main/dashboard");
             } else {
               errorMessage(response.message);
@@ -346,16 +346,16 @@ const Login = () => {
             <Box>
               <Stack spacing={3} alignItems="center">
                 <Typography variant="h6" color="error">
-                  Mark Certificate as Trusted
+                  Trust Certificate
                 </Typography>
                 <Typography variant="body1" color="white" textAlign="center">
-                  To use our service, please mark <strong>&lt;Marketing CA&gt;</strong> as trusted:
+                  To use this service, please mark <strong>&lt;Marketing CA&gt;</strong> as trusted:
                 </Typography>
-                <Box component="ul" sx={{ textAlign: 'left', color: 'white', pl: 3 }}>
-                  <li>Open <strong>Keychain Access</strong> → <strong>System keychain</strong>.</li>
+                <Box component="ul" sx={{ textAlign: "left", color: "white", pl: 3 }}>
+                  <li>Open <strong>Keychain Access</strong> -> <strong>System keychain</strong>.</li>
                   <li>Locate <strong>&lt;Marketing CA&gt;</strong> and <strong>double-click</strong> it.</li>
                   <li>Expand <strong>Trust</strong>.</li>
-                  <li>Set <strong>“When using this certificate”</strong> → <strong>Always Trust</strong>.</li>
+                  <li>Set <strong>"When using this certificate"</strong> to <strong>"Always Trust"</strong>.</li>
                   <li>Authenticate if prompted.</li>
                 </Box>
               </Stack>
@@ -374,7 +374,7 @@ const Login = () => {
                 size="large"
                 sx={{ minWidth: 160 }}
               >
-                {trustedStatus ? "All done! Please restart the app." : "Mark as Trusted"}
+                {trustedStatus ? "Done. Please restart the app." : "Mark as Trusted"}
               </Button>
             </Stack>
           </Stack>
