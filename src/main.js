@@ -336,7 +336,7 @@ if (!gotTheLock) {
     } else if (process.platform === "darwin") {
       try {
         const output = execSync(
-          `security find-certificate -a -p /Library/Keychains/System.keychain | grep "MIIBhjCCASugAwIBAgIUd+87T/bW/qcVbax2mCckSE17oPowCgYIKoZIzj0EAwIw"`,
+          `security find-certificate -a -p /Library/Keychains/System.keychain | grep "MIIFYTCCA0mgAwIBAgIUHc92kSgRc8s69CqCPcHaweNZEwgwDQYJKoZIhvcNAQEL"`,
           {
             encoding: "utf8",
             stdio: "pipe",

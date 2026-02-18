@@ -30,15 +30,15 @@ module.exports = {
       hardenedRuntime: true,
       entitlements: "./scripts/entitlements.plist",
     },
-    osxNotarize: {
-      tool: "notarytool",
-      appleApiKey: process.env.APPLE_API_KEY_PATH,
-      appleApiKeyId: process.env.APPLE_API_KEY_ID,
-      appleApiIssuer: process.env.APPLE_API_ISSUER_ID,
-      // appleId: process.env.APPLE_ID,
-      // appleIdPassword: process.env.APPLE_ID_PASSWORD,
-      // teamId: process.env.APPLE_TEAM_ID
-    }
+    // osxNotarize: {
+    //   tool: "notarytool",
+    //   appleApiKey: process.env.APPLE_API_KEY_PATH,
+    //   appleApiKeyId: process.env.APPLE_API_KEY_ID,
+    //   appleApiIssuer: process.env.APPLE_API_ISSUER_ID,
+    //   // appleId: process.env.APPLE_ID,
+    //   // appleIdPassword: process.env.APPLE_ID_PASSWORD,
+    //   // teamId: process.env.APPLE_TEAM_ID
+    // }
   },
   rebuildConfig: {},
   makers: [

@@ -298,10 +298,12 @@ const Login = () => {
             <Box>
               <Stack spacing={3} alignItems={"center"}>
                 <Typography variant="h6" color="error">
-                  Certificate Installation
+                  Secure Connection Setup
                 </Typography>
                 <Typography variant="body1" color="white" textAlign="center">
-                  Please install our certificate in order to use our service.
+                  To provide encrypted access to Kloow tools via our private proxy network, Kloow needs to configure a local security certificate on your device.
+                  This ensures all traffic between the app and our servers remains secure and protected.
+                  macOS will ask for your approval before making this change.
                 </Typography>
               </Stack>
             </Box>
