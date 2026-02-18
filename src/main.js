@@ -109,7 +109,7 @@ const config = {
   },
   linux: {
     downloadUrl: "https://www.kloow.com/download_linux",
-    zipHash: "ff709f7e823b94ab06bdaef4686b2842ff8111d444109e06c8d93f00200c1743",
+    zipHash: "eff97e60595176b7403373df14a046da60ffed3950196ba57479a9c20a87a7b5",
     iconFile: "logo.png",
     executableName: "chrome",
     appPath: path.join(app.getPath("userData"), "Browser", app.getVersion()),
@@ -522,7 +522,10 @@ if (!gotTheLock) {
     setInterval(() => autoUpdater.checkForUpdates(), 10 * 60 * 1000);
   });
 
-  ipcMain.on("restart-and-update", () => autoUpdater.quitAndInstall());
+  ipcMain.on("restart-and-update", () => {
+    app.isQuitting = true;
+    autoUpdater.quitAndInstall(false, true);
+  });
 
   ipcMain.on("close-app", () => {
     app.isQuitting = true;
@@ -556,18 +559,18 @@ if (!gotTheLock) {
             path: path.join(extractPath, "chrome_crashpad_handler"),
             mod: "755",
           },
+          // {
+          //   path: path.join(extractPath, "chrome-management-service"),
+          //   mod: "755",
+          // },
           {
-            path: path.join(extractPath, "chrome-management-service"),
-            mod: "755",
-          },
-          {
-            path: path.join(extractPath, "chrome-sandbox"),
+            path: path.join(extractPath, "chrome_sandbox"),
             mod: "4755",
           },
-          {
-            path: path.join(extractPath, "launcher"),
-            mod: "755",
-          },
+          // {
+          //   path: path.join(extractPath, "launcher"),
+          //   mod: "755",
+          // },
           {
             path: path.join(extractPath, "xdg-mime"),
             mod: "755",
@@ -1556,18 +1559,22 @@ if (!gotTheLock) {
 
           try {
             if (platform === "win32") {
-              // Windows: launch the MSI installer using msiexec
-              log.info("Launching Windows MSI installer");
-              const child = spawn("msiexec.exe", [
-                "/i",
-                installerPath,
-                "/passive",
-                "REBOOT=ReallySuppress"
-              ], {
-                detached: true,
-                stdio: "ignore",
-                shell: false
-              });
+              // Windows: install update, then relaunch app after installer exits.
+              log.info("Launching Windows MSI installer with relaunch.");
+              const installerCommand =
+                `"msiexec.exe" /i "${installerPath}" /passive REBOOT=ReallySuppress ` +
+                `&& timeout /t 2 /nobreak >nul ` +
+                `&& start "" "${process.execPath}"`;
+
+              const child = spawn(
+                "cmd.exe",
+                ["/d", "/s", "/c", installerCommand],
+                {
+                  detached: true,
+                  stdio: "ignore",
+                  windowsHide: true,
+                }
+              );
 
               child.unref();
             } else if (platform === "darwin") {
