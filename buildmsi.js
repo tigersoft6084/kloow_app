@@ -4,7 +4,7 @@ const { MSICreator } = require("electron-wix-msi");
 
 // App info
 const appName = "Kloow";
-const appVersion = "1.0.1"; // replace with your package.json version if needed
+const appVersion = "1.0.2"; // replace with your package.json version if needed
 const manufacturer = "Kloow Inc.";
 
 // Paths
