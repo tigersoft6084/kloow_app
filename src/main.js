@@ -607,7 +607,8 @@ if (!gotTheLock) {
 
       const args = [
         // `--incognito`,
-        `--user-data-dir="${userDataDir}"`
+        `--user-data-dir="${userDataDir}"`,
+        `--no-default-browser-check`
       ];
 
       if (extensionPath) {
