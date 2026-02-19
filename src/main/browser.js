@@ -30,12 +30,38 @@ async function terminateProcess(pid, log) {
 }
 
 function createBrowserService({ platformConfig, state, log }) {
-  async function runExecutable(executablePath, id, url, server, extensionPath) {
+  function dedupeTempDirs(tempDirs = []) {
+    return Array.from(new Set(tempDirs.filter(Boolean)));
+  }
+
+  async function cleanupTempDirs(tempDirs, id) {
+    for (const tempDir of dedupeTempDirs(tempDirs)) {
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true });
+        log.info(`Removed temp directory for id ${id}: ${tempDir}`);
+      } catch (error) {
+        log.warn(`Failed to remove temp directory for id ${id}: ${tempDir} (${error.message})`);
+      }
+    }
+  }
+
+  async function cleanupProcessTempDirs(proc, id) {
+    if (!proc || proc.kloowTempDirsCleaned) {
+      return;
+    }
+    proc.kloowTempDirsCleaned = true;
+    await cleanupTempDirs(proc.kloowTempDirs || [], id);
+    proc.kloowTempDirs = [];
+  }
+
+  async function runExecutable(executablePath, id, url, server, extensionPath, tempDirs = []) {
+    let proc = null;
     try {
       const existingProcess = state.browserProcesses.get(id);
       if (existingProcess && !existingProcess.killed) {
         log.info(`Terminating existing process for id ${id}, PID: ${existingProcess.pid}`);
         await terminateProcess(existingProcess.pid, log);
+        await cleanupProcessTempDirs(existingProcess, id);
         state.browserProcesses.delete(id);
       }
 
@@ -82,10 +108,12 @@ function createBrowserService({ platformConfig, state, log }) {
         args.push(`"${url}"`);
       }
 
-      const proc = spawn(`"${executablePath}"`, args, {
+      proc = spawn(`"${executablePath}"`, args, {
         windowsHide: process.platform === "win32",
         shell: true,
       });
+      proc.kloowTempDirs = dedupeTempDirs(tempDirs);
+      proc.kloowTempDirsCleaned = false;
       state.browserProcesses.set(id, proc);
 
       proc.on("spawn", () => {
@@ -95,18 +123,31 @@ function createBrowserService({ platformConfig, state, log }) {
 
       proc.on("exit", (code, signal) => {
         log.info(`Browser process for id ${id} exited with code ${code}, signal: ${signal}`);
-        state.browserProcesses.delete(id);
-        broadcast("browser-status", { id, running: false });
+        if (state.browserProcesses.get(id) === proc) {
+          state.browserProcesses.delete(id);
+          broadcast("browser-status", { id, running: false });
+        }
+        void cleanupProcessTempDirs(proc, id);
       });
 
       proc.on("error", (err) => {
         log.error(`Browser process error for id ${id}: ${err.message}`);
-        state.browserProcesses.delete(id);
-        broadcast("browser-status", { id, running: false });
+        if (state.browserProcesses.get(id) === proc) {
+          state.browserProcesses.delete(id);
+          broadcast("browser-status", { id, running: false });
+        }
+        void cleanupProcessTempDirs(proc, id);
       });
     } catch (error) {
       log.error(`Error running executable for id ${id}: ${error.message}`);
-      state.browserProcesses.delete(id);
+      if (proc) {
+        await cleanupProcessTempDirs(proc, id);
+        if (state.browserProcesses.get(id) === proc) {
+          state.browserProcesses.delete(id);
+        }
+      } else {
+        await cleanupTempDirs(tempDirs, id);
+      }
       broadcast("browser-status", { id, running: false });
       throw error;
     }
@@ -268,18 +309,26 @@ function createBrowserService({ platformConfig, state, log }) {
       }
     }
 
-    let extensionPath = extensionId ? await downloadExtension(extensionId) : null;
     const authToken = url ? url.split("?")[1] : "";
-    if (authToken) {
-      const dnrPath = await makeDnr(authToken);
-      extensionPath = extensionPath ? `${extensionPath},${dnrPath}` : dnrPath;
-    }
+    const tempDirs = [];
+    let extensionPath = null;
 
     try {
+      if (extensionId) {
+        extensionPath = await downloadExtension(extensionId);
+        tempDirs.push(path.dirname(extensionPath));
+      }
+      if (authToken) {
+        const dnrPath = await makeDnr(authToken);
+        tempDirs.push(dnrPath);
+        extensionPath = extensionPath ? `${extensionPath},${dnrPath}` : dnrPath;
+      }
+
       await fs.access(executablePath);
-      await runExecutable(executablePath, id, url, server, extensionPath);
+      await runExecutable(executablePath, id, url, server, extensionPath, tempDirs);
       return { status: true, message: "" };
     } catch (e) {
+      await cleanupTempDirs(tempDirs, id);
       log.error(`run-browser failed for id ${id}: ${e.message}`);
       return { status: false, message: e.message };
     }
@@ -291,7 +340,10 @@ function createBrowserService({ platformConfig, state, log }) {
       if (existingProcess && !existingProcess.killed) {
         log.info(`Terminating existing process for id ${id}, PID: ${existingProcess.pid}`);
         await terminateProcess(existingProcess.pid, log);
-        state.browserProcesses.delete(id);
+        await cleanupProcessTempDirs(existingProcess, id);
+        if (state.browserProcesses.get(id) === existingProcess) {
+          state.browserProcesses.delete(id);
+        }
         broadcast("browser-status", { id, running: false });
         return { status: true, message: `Browser stopped for id ${id}` };
       }
@@ -369,13 +421,22 @@ function createBrowserService({ platformConfig, state, log }) {
   }
 
   async function stopAllBrowsers() {
-    const terminationPromises = [];
-    for (const [, browserProcess] of state.browserProcesses) {
-      if (browserProcess && !browserProcess.killed) {
-        terminationPromises.push(terminateProcess(browserProcess.pid, log));
-      }
+    const stopTasks = [];
+    for (const [id, browserProcess] of state.browserProcesses) {
+      stopTasks.push(
+        (async () => {
+          if (browserProcess && !browserProcess.killed) {
+            try {
+              await terminateProcess(browserProcess.pid, log);
+            } catch (error) {
+              log.error(`Error terminating process for id ${id}: ${error.message}`);
+            }
+          }
+          await cleanupProcessTempDirs(browserProcess, id);
+        })()
+      );
     }
-    await Promise.all(terminationPromises);
+    await Promise.all(stopTasks);
     state.browserProcesses.clear();
   }
 
