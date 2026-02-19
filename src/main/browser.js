@@ -10,12 +10,7 @@ const fp = require("find-process");
 const find = typeof fp === "function" ? fp : fp.default;
 
 const { buildDnrManifest, buildDnrRules } = require("./config");
-
-function broadcast(channel, payload) {
-  BrowserWindow.getAllWindows().forEach((win) => {
-    win.webContents.send(channel, payload);
-  });
-}
+const { broadcast } = require("./shared/broadcast");
 
 async function terminateProcess(pid, log) {
   return new Promise((resolve, reject) => {

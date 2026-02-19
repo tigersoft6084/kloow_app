@@ -8,12 +8,7 @@ const { BrowserWindow } = require("electron");
 const {
   ersPlatform,
 } = require("@electron-forge/publisher-electron-release-server");
-
-function broadcast(channel, payload) {
-  BrowserWindow.getAllWindows().forEach((win) => {
-    win.webContents.send(channel, payload);
-  });
-}
+const { broadcast } = require("./shared/broadcast");
 
 function createUpdatesService({ app, autoUpdater, state, log }) {
   function setupAutoUpdater() {
