@@ -66,14 +66,14 @@ module.exports = {
         },
       },
     },
-    {
-      name: "@electron-forge/maker-rpm",
-      config: {
-        options: {
-          icon: "./src/assets/images/logo.png",
-        },
-      },
-    },
+    // {
+    //   name: "@electron-forge/maker-rpm",
+    //   config: {
+    //     options: {
+    //       icon: "./src/assets/images/logo.png",
+    //     },
+    //   },
+    // },
   ],
   publishers: [
     {
