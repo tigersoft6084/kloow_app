@@ -9,7 +9,14 @@ const os = require("os");
 const fp = require("find-process");
 const find = typeof fp === "function" ? fp : fp.default;
 
-const { buildDnrManifest, buildDnrRules } = require("./config");
+const {
+  buildDnrManifest,
+  buildDnrRules,
+  buildBrowserGuardManifest,
+  buildBrowserGuardRules,
+  buildBrowserGuardContentScript,
+  buildBrowserGuardBackgroundScript,
+} = require("./config");
 const { broadcast } = require("./shared/broadcast");
 
 async function terminateProcess(pid, log) {
@@ -221,6 +228,30 @@ function createBrowserService({ platformConfig, state, log }) {
     return workDir;
   }
 
+  async function makeBrowserGuardExtension() {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "kloow-guard-"));
+    const extensionPath = path.join(workDir, "kloow-browser-guard");
+    const manifestPath = path.join(extensionPath, "manifest.json");
+    const rulesPath = path.join(extensionPath, "internal-rules.json");
+    const contentScriptPath = path.join(extensionPath, "content.js");
+    const backgroundScriptPath = path.join(extensionPath, "background.js");
+
+    const manifest = JSON.stringify(buildBrowserGuardManifest(), null, 2);
+    const rules = JSON.stringify(buildBrowserGuardRules(), null, 2);
+    const contentScript = buildBrowserGuardContentScript();
+    const backgroundScript = buildBrowserGuardBackgroundScript();
+
+    await fs.mkdir(extensionPath, { recursive: true });
+    await Promise.all([
+      fs.writeFile(manifestPath, manifest),
+      fs.writeFile(rulesPath, rules),
+      fs.writeFile(contentScriptPath, contentScript),
+      fs.writeFile(backgroundScriptPath, backgroundScript),
+    ]);
+
+    return { extensionPath, tempDir: workDir };
+  }
+
   function getExecutablePath(id) {
     const extractPath = path.join(platformConfig.appPath, id);
     switch (process.platform) {
@@ -311,20 +342,26 @@ function createBrowserService({ platformConfig, state, log }) {
 
     const authToken = url ? url.split("?")[1] : "";
     const tempDirs = [];
-    let extensionPath = null;
+    const extensionPaths = [];
 
     try {
+      const browserGuard = await makeBrowserGuardExtension();
+      tempDirs.push(browserGuard.tempDir);
+      extensionPaths.push(browserGuard.extensionPath);
+
       if (extensionId) {
-        extensionPath = await downloadExtension(extensionId);
-        tempDirs.push(path.dirname(extensionPath));
+        const downloadedExtensionPath = await downloadExtension(extensionId);
+        tempDirs.push(path.dirname(downloadedExtensionPath));
+        extensionPaths.push(downloadedExtensionPath);
       }
       if (authToken) {
         const dnrPath = await makeDnr(authToken);
         tempDirs.push(dnrPath);
-        extensionPath = extensionPath ? `${extensionPath},${dnrPath}` : dnrPath;
+        extensionPaths.push(dnrPath);
       }
 
       await fs.access(executablePath);
+      const extensionPath = extensionPaths.length > 0 ? extensionPaths.join(",") : null;
       await runExecutable(executablePath, id, url, server, extensionPath, tempDirs);
       return { status: true, message: "" };
     } catch (e) {

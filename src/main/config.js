@@ -86,6 +86,150 @@ const DNR_RULES_TEMPLATE = [
   },
 ];
 
+const BROWSER_GUARD_MANIFEST_TEMPLATE = {
+  manifest_version: 3,
+  name: "Kloow Browser Guard",
+  version: "1.0.0",
+  description: "Blocks DevTools shortcuts, context menus, and internal browser URLs.",
+  permissions: ["tabs", "webNavigation", "declarativeNetRequest"],
+  host_permissions: ["<all_urls>"],
+  background: {
+    service_worker: "background.js",
+  },
+  content_scripts: [
+    {
+      matches: ["<all_urls>"],
+      js: ["content.js"],
+      run_at: "document_start",
+      all_frames: true,
+    },
+  ],
+  declarative_net_request: {
+    rule_resources: [{ id: "internal_urls", enabled: true, path: "internal-rules.json" }],
+  },
+};
+
+const BROWSER_GUARD_RULES_TEMPLATE = [
+  {
+    id: 1001,
+    priority: 1,
+    action: { type: "block" },
+    condition: {
+      regexFilter: "^(?:chrome(?:-[a-z]+)?|devtools|edge|about|view-source):",
+      resourceTypes: ["main_frame", "sub_frame"],
+    },
+  },
+];
+
+const BROWSER_GUARD_CONTENT_SCRIPT = `(() => {
+  const blockedCtrlShiftCodes = new Set(["KeyI", "KeyJ", "KeyC", "KeyK"]);
+
+  document.addEventListener(
+    "contextmenu",
+    (event) => {
+      event.preventDefault();
+    },
+    true
+  );
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      const key = (event.key || "").toLowerCase();
+      const code = event.code || "";
+      const isF12 = key === "f12" || code === "F12";
+      const isCtrlShiftInspect = event.ctrlKey && event.shiftKey && blockedCtrlShiftCodes.has(code);
+      const isCtrlU = event.ctrlKey && !event.shiftKey && key === "u";
+
+      if (isF12 || isCtrlShiftInspect || isCtrlU) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
+    },
+    true
+  );
+
+  let devtoolsOpen = false;
+  setInterval(() => {
+    const start = new Date();
+    debugger;
+    if (!devtoolsOpen && new Date() - start > 100) {
+      devtoolsOpen = true;
+      try {
+        chrome.runtime.sendMessage({ type: "devtools-open" });
+      } catch (error) {
+        // Ignore runtime messaging errors.
+      }
+    }
+  }, 1000);
+})();`;
+
+const BROWSER_GUARD_BACKGROUND_SCRIPT = `const BLOCKED_PROTOCOLS = new Set([
+  "chrome:",
+  "chrome-extension:",
+  "chrome-search:",
+  "chrome-untrusted:",
+  "devtools:",
+  "edge:",
+  "about:",
+  "view-source:",
+]);
+
+function getProtocol(url) {
+  if (typeof url !== "string" || url.length === 0) {
+    return "";
+  }
+
+  if (url.startsWith("view-source:")) {
+    return "view-source:";
+  }
+
+  try {
+    return new URL(url).protocol;
+  } catch (error) {
+    return "";
+  }
+}
+
+function isBlockedInternalUrl(url) {
+  return BLOCKED_PROTOCOLS.has(getProtocol(url));
+}
+
+function closeTabIfNeeded(tabId, url) {
+  if (!Number.isInteger(tabId) || tabId < 0 || !isBlockedInternalUrl(url)) {
+    return;
+  }
+
+  chrome.tabs.remove(tabId, () => {
+    if (chrome.runtime.lastError) {
+      return;
+    }
+  });
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  const targetUrl = changeInfo.url || (tab && tab.url);
+  closeTabIfNeeded(tabId, targetUrl);
+});
+
+chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+  if (!details || details.frameId !== 0) {
+    return;
+  }
+  closeTabIfNeeded(details.tabId, details.url);
+});
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message && message.type === "devtools-open" && sender && sender.tab && sender.tab.id >= 0) {
+    chrome.tabs.remove(sender.tab.id, () => {
+      if (chrome.runtime.lastError) {
+        return;
+      }
+    });
+  }
+});`;
+
 function buildDnrManifest() {
   return JSON.parse(JSON.stringify(DNR_MANIFEST_TEMPLATE));
 }
@@ -96,9 +240,29 @@ function buildDnrRules(authToken) {
   return rules;
 }
 
+function buildBrowserGuardManifest() {
+  return JSON.parse(JSON.stringify(BROWSER_GUARD_MANIFEST_TEMPLATE));
+}
+
+function buildBrowserGuardRules() {
+  return JSON.parse(JSON.stringify(BROWSER_GUARD_RULES_TEMPLATE));
+}
+
+function buildBrowserGuardContentScript() {
+  return BROWSER_GUARD_CONTENT_SCRIPT;
+}
+
+function buildBrowserGuardBackgroundScript() {
+  return BROWSER_GUARD_BACKGROUND_SCRIPT;
+}
+
 module.exports = {
   sanitizeAppName,
   getPlatformConfig,
   buildDnrManifest,
-  buildDnrRules
+  buildDnrRules,
+  buildBrowserGuardManifest,
+  buildBrowserGuardRules,
+  buildBrowserGuardContentScript,
+  buildBrowserGuardBackgroundScript,
 };
