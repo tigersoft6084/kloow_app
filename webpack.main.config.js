@@ -15,6 +15,10 @@ module.exports = {
       RELEASE_SERVER_URL: process.env.RELEASE_SERVER_URL,
       RELEASE_SERVER_USERNAME: process.env.RELEASE_SERVER_USERNAME,
       RELEASE_SERVER_PASSWORD: process.env.RELEASE_SERVER_PASSWORD,
+      UPDATE_BASE_URL: process.env.UPDATE_BASE_URL,
+      UPDATE_BASE_URL_WINDOWS: process.env.UPDATE_BASE_URL_WINDOWS,
+      UPDATE_BASE_URL_MACOS: process.env.UPDATE_BASE_URL_MACOS,
+      UPDATE_BASE_URL_LINUX: process.env.UPDATE_BASE_URL_LINUX,
     }),
     new CopyWebpackPlugin({
       patterns: [

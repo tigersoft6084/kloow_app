@@ -4,10 +4,38 @@ const semver = require("semver");
 const { autoUpdater } = require("electron-updater");
 const { broadcast } = require("./shared/broadcast");
 
-const DEFAULT_WINDOWS_UPDATE_PATH = "/kloow-version-manager/windows/";
-const DEFAULT_UPDATE_BASE_URL = "https://www.kloow.com/kloow-version-manager/windows/";
+const UPDATE_PATH_PREFIX = "/kloow-version-manager";
+const DEFAULT_UPDATE_BASE_URL = "https://www.kloow.com/kloow-version-manager/";
 const FALLBACK_UPDATER_CONFIG_NAME = "app-update.yml";
 const FALLBACK_UPDATER_CACHE_DIR = "kloow-updater-cache";
+const PLATFORM_PATH_ALIASES = new Set(["windows", "win32", "macos", "darwin", "linux"]);
+
+function getPlatformUpdateConfig(platform = process.platform) {
+  switch (platform) {
+    case "darwin":
+      return {
+        platform,
+        platformKey: "macos",
+        platformEnvVar: "UPDATE_BASE_URL_MACOS",
+        defaultPath: `${UPDATE_PATH_PREFIX}/macos/`,
+      };
+    case "linux":
+      return {
+        platform,
+        platformKey: "linux",
+        platformEnvVar: "UPDATE_BASE_URL_LINUX",
+        defaultPath: `${UPDATE_PATH_PREFIX}/linux/`,
+      };
+    case "win32":
+    default:
+      return {
+        platform,
+        platformKey: "windows",
+        platformEnvVar: "UPDATE_BASE_URL_WINDOWS",
+        defaultPath: `${UPDATE_PATH_PREFIX}/windows/`,
+      };
+  }
+}
 
 function normalizeFeedUrl(value = "") {
   const trimmed = value.trim();
@@ -40,19 +68,58 @@ function normalizeEnvUrl(value = "") {
   return normalized;
 }
 
-function toAbsoluteFeedUrl(value = "", fallbackPath = "/") {
+function resolveBasePathWithPlatform(pathname, platformKey, fallbackPath) {
+  const normalized = normalizePathname(pathname);
+  if (normalized === "/") {
+    return fallbackPath;
+  }
+
+  const segments = normalized.split("/").filter(Boolean);
+  if (segments.length === 0) {
+    return fallbackPath;
+  }
+
+  const lastIndex = segments.length - 1;
+  const lastSegment = segments[lastIndex].toLowerCase();
+
+  if (PLATFORM_PATH_ALIASES.has(lastSegment)) {
+    segments[lastIndex] = platformKey;
+    return `/${segments.join("/")}/`;
+  }
+
+  if (lastSegment === "kloow-version-manager") {
+    segments.push(platformKey);
+    return `/${segments.join("/")}/`;
+  }
+
+  if (/\.[a-z0-9]+$/i.test(lastSegment)) {
+    return normalized;
+  }
+
+  segments.push(platformKey);
+  return `/${segments.join("/")}/`;
+}
+
+function toAbsoluteFeedUrl(value = "", options = {}) {
   const normalized = normalizeFeedUrl(value);
   if (!normalized) {
     return null;
   }
 
+  const { fallbackPath = "/", platformKey = "windows", treatAsBaseUrl = false } = options;
+
   try {
     const parsed = new URL(normalized);
     const currentPath = normalizePathname(parsed.pathname);
     const expectedPath = normalizePathname(fallbackPath);
-    const shouldAppendDefaultPath = currentPath === "/";
 
-    parsed.pathname = shouldAppendDefaultPath ? expectedPath : currentPath;
+    if (treatAsBaseUrl) {
+      parsed.pathname = resolveBasePathWithPlatform(currentPath, platformKey, expectedPath);
+    } else {
+      parsed.pathname = currentPath === "/" ? expectedPath : currentPath;
+    }
+
+    parsed.search = "";
     parsed.hash = "";
     return parsed.toString();
   } catch {
@@ -60,19 +127,43 @@ function toAbsoluteFeedUrl(value = "", fallbackPath = "/") {
   }
 }
 
-function resolveFeedUrl() {
+function resolveFeedUrl(platform = process.platform) {
+  const platformConfig = getPlatformUpdateConfig(platform);
+
+  const explicitPlatformFeedUrl = normalizeEnvUrl(process.env[platformConfig.platformEnvVar] || "");
+  if (explicitPlatformFeedUrl) {
+    return toAbsoluteFeedUrl(explicitPlatformFeedUrl, {
+      fallbackPath: platformConfig.defaultPath,
+      platformKey: platformConfig.platformKey,
+      treatAsBaseUrl: false,
+    });
+  }
+
   // UPDATE_BASE_URL should point to a folder that contains latest.yml and installer artifacts.
-  // If only RELEASE_SERVER_URL is provided, default to the version manager path.
+  // If only RELEASE_SERVER_URL is provided, default to the version manager path + platform.
   const explicitFeedUrl = normalizeEnvUrl(process.env.UPDATE_BASE_URL || "");
   if (explicitFeedUrl) {
-    return toAbsoluteFeedUrl(explicitFeedUrl, DEFAULT_WINDOWS_UPDATE_PATH);
+    return toAbsoluteFeedUrl(explicitFeedUrl, {
+      fallbackPath: platformConfig.defaultPath,
+      platformKey: platformConfig.platformKey,
+      treatAsBaseUrl: true,
+    });
   }
 
   const releaseServerUrl = normalizeEnvUrl(process.env.RELEASE_SERVER_URL || "");
   if (releaseServerUrl) {
-    return toAbsoluteFeedUrl(releaseServerUrl, DEFAULT_WINDOWS_UPDATE_PATH);
+    return toAbsoluteFeedUrl(releaseServerUrl, {
+      fallbackPath: platformConfig.defaultPath,
+      platformKey: platformConfig.platformKey,
+      treatAsBaseUrl: true,
+    });
   }
-  return toAbsoluteFeedUrl(DEFAULT_UPDATE_BASE_URL, DEFAULT_WINDOWS_UPDATE_PATH);
+
+  return toAbsoluteFeedUrl(DEFAULT_UPDATE_BASE_URL, {
+    fallbackPath: platformConfig.defaultPath,
+    platformKey: platformConfig.platformKey,
+    treatAsBaseUrl: true,
+  });
 }
 
 function buildFallbackUpdaterConfig(feedUrl) {
@@ -116,7 +207,8 @@ function createUpdatesService({ app, log }) {
     }
     updaterInitialized = true;
 
-    const feedUrl = resolveFeedUrl();
+    const platformConfig = getPlatformUpdateConfig();
+    const feedUrl = resolveFeedUrl(platformConfig.platform);
 
     autoUpdater.logger = log;
     autoUpdater.logger.transports.file.level = "info";
@@ -139,10 +231,10 @@ function createUpdatesService({ app, log }) {
         provider: "generic",
         url: feedUrl,
       });
-      log.info(`Auto-updater feed URL configured: ${feedUrl}`);
+      log.info(`Auto-updater feed URL configured for ${platformConfig.platformKey}: ${feedUrl}`);
     } else {
       log.warn(
-        "Auto-updater feed URL is missing. Set UPDATE_BASE_URL (or RELEASE_SERVER_URL) to enable updates."
+        `Auto-updater feed URL is missing. Set ${platformConfig.platformEnvVar}, UPDATE_BASE_URL, or RELEASE_SERVER_URL.`
       );
     }
 
