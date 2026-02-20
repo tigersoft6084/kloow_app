@@ -18,6 +18,8 @@ function createMainWindow(app, log, entries) {
     },
   });
 
+  mainWindow.webContents.openDevTools();
+
   mainWindow.on("close", (event) => {
     if (!app.isQuitting) {
       event.preventDefault();
