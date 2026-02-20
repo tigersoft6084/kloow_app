@@ -1,6 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-const semver = require("semver");
 const { autoUpdater } = require("electron-updater");
 const { broadcast } = require("./shared/broadcast");
 
@@ -249,6 +248,7 @@ function createUpdatesService({ app, log }) {
       broadcast("update-status", {
         status: "update-available",
         message: info?.version ? `Update v${info.version} is available.` : "Update is available.",
+        version: info?.version || null,
       });
       emitUpdateDownloadStatus({
         status: "idle",
@@ -261,6 +261,7 @@ function createUpdatesService({ app, log }) {
       broadcast("update-status", {
         status: "update-not-available",
         message: "You are using the latest version.",
+        version: null,
       });
       emitUpdateDownloadStatus({
         status: "idle",
@@ -288,6 +289,7 @@ function createUpdatesService({ app, log }) {
       broadcast("update-status", {
         status: "update-downloaded",
         message: `${versionLabel} downloaded successfully.`,
+        version: info?.version || null,
       });
     });
 
@@ -302,28 +304,6 @@ function createUpdatesService({ app, log }) {
         message: err.message,
       });
     });
-  }
-
-  async function checkUpdate(event, remote = {}) {
-    const localVersion = app.getVersion();
-    const platform = process.platform;
-
-    try {
-      if (semver.valid(remote.version) && semver.gt(remote.version, localVersion)) {
-        return {
-          updateAvailable: true,
-          latestVersion: remote.version,
-          downloadUrl: remote.downloadUrls?.[platform] || null,
-        };
-      }
-      return { updateAvailable: false };
-    } catch (error) {
-      log.error("Error checking for updates:", error);
-      return {
-        updateAvailable: false,
-        error: error.message,
-      };
-    }
   }
 
   async function downloadAndUpdate() {
@@ -413,7 +393,6 @@ function createUpdatesService({ app, log }) {
       app.quit();
     });
 
-    ipcMain.handle("check-update", checkUpdate);
     ipcMain.handle("download-and-update", downloadAndUpdate);
   }
 

@@ -45,7 +45,6 @@ function safeReadUser() {
 
 export default function useDashboardController() {
   const {
-    getLatestInfo,
     checkHealth,
     frogStatus,
     getAppList,
@@ -214,39 +213,35 @@ export default function useDashboardController() {
   }, []);
 
   useEffect(() => {
-    const checkForUpdates = async () => {
-      try {
-        const latestInfo = await getLatestInfo();
-        if (!latestInfo) return;
-
-        const remote = {
-          version: latestInfo.version,
-          downloadUrls: {
-            win32: latestInfo.downloadUrls.win32,
-            darwin: latestInfo.downloadUrls.darwin,
-            linux: latestInfo.downloadUrls.linux,
-          },
-        };
-
-        const result = await window.electronAPI.checkUpdate(remote);
-        if (result.updateAvailable) {
-          setUpdate(true);
-          setLatestVersion(result.latestVersion);
-
-          if (!updateNotificationShown) {
+    const handleUpdateStatus = (_, response = {}) => {
+      if (response.status === "update-available") {
+        const version = response.version || null;
+        setUpdate(true);
+        setLatestVersion(version);
+        setUpdateNotificationShown((shown) => {
+          if (!shown) {
             setShowUpdateDialog(true);
-            setUpdateNotificationShown(true);
-            successMessage(`Update available (v${result.latestVersion})`);
+            successMessage(
+              version ? `Update available (v${version})` : "Update available"
+            );
           }
-        } else {
-          setUpdate(false);
-          setLatestVersion(null);
-        }
-      } catch (error) {
-        console.error("Error checking for updates - front:", error);
+          return true;
+        });
+        return;
+      }
+
+      if (response.status === "update-not-available") {
+        setUpdate(false);
+        setLatestVersion(null);
+      }
+
+      if (response.status === "update-downloaded") {
+        setUpdate(false);
       }
     };
-    checkForUpdates();
+
+    window.electronAPI.onUpdateStatus(handleUpdateStatus);
+    window.electronAPI.checkForUpdates();
   }, []);
 
   useEffect(() => {
@@ -282,18 +277,24 @@ export default function useDashboardController() {
   }, [selectedTab]);
 
   const downloadAndUpdate = useCallback(async () => {
-    if (!update) return;
-
     try {
       setIsUpdateDownloading(true);
-      await window.electronAPI.downloadAndUpdate();
-      successMessage(`Update to version ${latestVersion} started downloading`);
+      const result = await window.electronAPI.downloadAndUpdate();
+      if (result?.status) {
+        successMessage(
+          latestVersion
+            ? `Update to version ${latestVersion} started downloading`
+            : "Update download started"
+        );
+        return;
+      }
+      errorMessage(result?.message || "No update available.");
     } catch {
       errorMessage("Update failed. Please try again.");
     } finally {
       setIsUpdateDownloading(false);
     }
-  }, [errorMessage, latestVersion, successMessage, update]);
+  }, [errorMessage, latestVersion, successMessage]);
 
   const handleDownloadFromDialog = useCallback(async () => {
     await downloadAndUpdate();
