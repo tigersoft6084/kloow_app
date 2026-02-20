@@ -1,31 +1,210 @@
-const os = require("os");
+const fs = require("fs");
 const path = require("path");
-const { spawn, exec } = require("child_process");
 const semver = require("semver");
-const sudo = require("sudo-prompt");
-const { download } = require("electron-dl");
-const { BrowserWindow } = require("electron");
-const {
-  ersPlatform,
-} = require("@electron-forge/publisher-electron-release-server");
+const { autoUpdater } = require("electron-updater");
 const { broadcast } = require("./shared/broadcast");
 
-function createUpdatesService({ app, autoUpdater, state, log }) {
-  function setupAutoUpdater() {
-    const feedUrl =
-      `${process.env.RELEASE_SERVER_URL}/update/flavor/${app.getName()}/` +
-      `${ersPlatform(process.platform, process.arch)}/${app.getVersion()}`;
+const DEFAULT_WINDOWS_UPDATE_PATH = "/kloow-version-manager/windows/";
+const DEFAULT_UPDATE_BASE_URL = "https://www.kloow.com/kloow-version-manager/windows/";
+const FALLBACK_UPDATER_CONFIG_NAME = "app-update.yml";
+const FALLBACK_UPDATER_CACHE_DIR = "kloow-updater-cache";
 
-    autoUpdater.setFeedURL({ url: feedUrl });
-    autoUpdater.on("update-downloaded", (event, releaseNotes, releaseName) => {
+function normalizeFeedUrl(value = "") {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.endsWith("/")) {
+    return trimmed;
+  }
+  return `${trimmed}/`;
+}
+
+function normalizePathname(pathname = "/") {
+  if (!pathname) {
+    return "/";
+  }
+  return pathname.endsWith("/") ? pathname : `${pathname}/`;
+}
+
+function normalizeEnvUrl(value = "") {
+  const normalized = normalizeFeedUrl(value);
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.includes("your-domain")) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function toAbsoluteFeedUrl(value = "", fallbackPath = "/") {
+  const normalized = normalizeFeedUrl(value);
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(normalized);
+    const currentPath = normalizePathname(parsed.pathname);
+    const expectedPath = normalizePathname(fallbackPath);
+    const shouldAppendDefaultPath = currentPath === "/";
+
+    parsed.pathname = shouldAppendDefaultPath ? expectedPath : currentPath;
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return normalized;
+  }
+}
+
+function resolveFeedUrl() {
+  // UPDATE_BASE_URL should point to a folder that contains latest.yml and installer artifacts.
+  // If only RELEASE_SERVER_URL is provided, default to the version manager path.
+  const explicitFeedUrl = normalizeEnvUrl(process.env.UPDATE_BASE_URL || "");
+  if (explicitFeedUrl) {
+    return toAbsoluteFeedUrl(explicitFeedUrl, DEFAULT_WINDOWS_UPDATE_PATH);
+  }
+
+  const releaseServerUrl = normalizeEnvUrl(process.env.RELEASE_SERVER_URL || "");
+  if (releaseServerUrl) {
+    return toAbsoluteFeedUrl(releaseServerUrl, DEFAULT_WINDOWS_UPDATE_PATH);
+  }
+  return toAbsoluteFeedUrl(DEFAULT_UPDATE_BASE_URL, DEFAULT_WINDOWS_UPDATE_PATH);
+}
+
+function buildFallbackUpdaterConfig(feedUrl) {
+  return [
+    "provider: generic",
+    `url: ${JSON.stringify(feedUrl)}`,
+    "channel: latest",
+    `updaterCacheDirName: ${JSON.stringify(FALLBACK_UPDATER_CACHE_DIR)}`,
+    "",
+  ].join("\n");
+}
+
+function ensureUpdaterConfigFile(app, feedUrl, log) {
+  if (!feedUrl) {
+    return null;
+  }
+
+  try {
+    const userDataPath = app.getPath("userData");
+    const configPath = path.join(userDataPath, FALLBACK_UPDATER_CONFIG_NAME);
+    const configContent = buildFallbackUpdaterConfig(feedUrl);
+    fs.writeFileSync(configPath, configContent, "utf8");
+    return configPath;
+  } catch (error) {
+    log.warn(`Unable to create fallback updater config file: ${error.message}`);
+    return null;
+  }
+}
+
+function createUpdatesService({ app, log }) {
+  let updateCheckInterval = null;
+  let updaterInitialized = false;
+
+  function emitUpdateDownloadStatus(payload) {
+    broadcast("update-download-status", payload);
+  }
+
+  function setupAutoUpdater() {
+    if (updaterInitialized) {
+      return;
+    }
+    updaterInitialized = true;
+
+    const feedUrl = resolveFeedUrl();
+
+    autoUpdater.logger = log;
+    autoUpdater.logger.transports.file.level = "info";
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    if (!app.isPackaged) {
+      log.info("Auto-updater is disabled in development mode.");
+      return;
+    }
+
+    if (feedUrl) {
+      const fallbackConfigPath = ensureUpdaterConfigFile(app, feedUrl, log);
+      if (fallbackConfigPath) {
+        autoUpdater.updateConfigPath = fallbackConfigPath;
+        log.info(`Auto-updater config path configured: ${fallbackConfigPath}`);
+      }
+
+      autoUpdater.setFeedURL({
+        provider: "generic",
+        url: feedUrl,
+      });
+      log.info(`Auto-updater feed URL configured: ${feedUrl}`);
+    } else {
+      log.warn(
+        "Auto-updater feed URL is missing. Set UPDATE_BASE_URL (or RELEASE_SERVER_URL) to enable updates."
+      );
+    }
+
+    autoUpdater.on("checking-for-update", () => {
+      broadcast("update-status", {
+        status: "check-for-updates",
+        message: "Checking for updates.",
+      });
+    });
+
+    autoUpdater.on("update-available", (info) => {
+      broadcast("update-status", {
+        status: "update-available",
+        message: info?.version ? `Update v${info.version} is available.` : "Update is available.",
+      });
+      emitUpdateDownloadStatus({
+        status: "idle",
+        message: "Update is available. Click download to start.",
+        percent: 0,
+      });
+    });
+
+    autoUpdater.on("update-not-available", () => {
+      broadcast("update-status", {
+        status: "update-not-available",
+        message: "You are using the latest version.",
+      });
+      emitUpdateDownloadStatus({
+        status: "idle",
+        message: "No update available.",
+        percent: 0,
+      });
+    });
+
+    autoUpdater.on("download-progress", (progress) => {
+      emitUpdateDownloadStatus({
+        status: "downloading",
+        message: `Downloading update: ${Math.round(progress.percent || 0)}%`,
+        percent: Math.round(progress.percent || 0),
+      });
+    });
+
+    autoUpdater.on("update-downloaded", (info) => {
+      const versionLabel = info?.version ? `v${info.version}` : "latest version";
+      emitUpdateDownloadStatus({
+        status: "completed",
+        message: "Update downloaded successfully. Restart the app to install.",
+        percent: 100,
+      });
+
       broadcast("update-status", {
         status: "update-downloaded",
-        message: process.platform === "win32" ? releaseNotes : releaseName,
+        message: `${versionLabel} downloaded successfully.`,
       });
     });
 
     autoUpdater.on("error", (err) => {
       log.error("Error in auto-updater:", err);
+      emitUpdateDownloadStatus({
+        status: "error",
+        message: err.message,
+      });
       broadcast("update-status", {
         status: "error",
         message: err.message,
@@ -33,16 +212,16 @@ function createUpdatesService({ app, autoUpdater, state, log }) {
     });
   }
 
-  async function checkUpdate(event, remote) {
+  async function checkUpdate(event, remote = {}) {
     const localVersion = app.getVersion();
     const platform = process.platform;
 
     try {
-      if (semver.gt(remote.version, localVersion)) {
+      if (semver.valid(remote.version) && semver.gt(remote.version, localVersion)) {
         return {
           updateAvailable: true,
           latestVersion: remote.version,
-          downloadUrl: remote.downloadUrls[platform],
+          downloadUrl: remote.downloadUrls?.[platform] || null,
         };
       }
       return { updateAvailable: false };
@@ -55,151 +234,81 @@ function createUpdatesService({ app, autoUpdater, state, log }) {
     }
   }
 
-  async function downloadAndUpdate(event, downloadUrl) {
+  async function downloadAndUpdate() {
     try {
-      const platform = process.platform;
-      const tmpDir = os.tmpdir();
+      setupAutoUpdater();
 
-      let ext = "";
-      let filename = "";
-      if (platform === "win32") {
-        ext = ".msi";
-        filename = `kloow-update-${Date.now()}${ext}`;
-      } else if (platform === "darwin") {
-        ext = ".dmg";
-        filename = `kloow-update-${Date.now()}${ext}`;
-      } else if (platform === "linux") {
-        ext = ".deb";
-        filename = `kloow-update-${Date.now()}${ext}`;
+      if (!app.isPackaged) {
+        return {
+          status: false,
+          message: "Auto-update is available only in packaged builds.",
+        };
       }
 
-      const tmpDest = path.join(tmpDir, filename);
-      const windows = BrowserWindow.getAllWindows();
-
-      state.isDownloading = true;
-      windows.forEach((win) =>
-        win.webContents.send("update-download-status", {
-          status: "downloading",
-          message: "Update download started.",
-          percent: 0,
-        })
-      );
-
-      log.info("Downloading update from:", downloadUrl);
-
-      await download(windows[0], downloadUrl, {
-        directory: tmpDir,
-        filename,
-        overwrite: true,
-        onStarted: () => {
-          log.info("Update download started.");
-        },
-        onProgress: (percent) => {
-          windows.forEach((win) =>
-            win.webContents.send("update-download-status", {
-              status: "downloading",
-              message: `Downloading update: ${Math.round(percent * 100)}%`,
-              percent: Math.round(percent * 100),
-            })
-          );
-        },
-        onCompleted: () => {
-          state.isDownloading = false;
-          const installerPath = tmpDest;
-          log.info("Update download completed:", installerPath);
-          windows.forEach((win) =>
-            win.webContents.send("update-download-status", {
-              status: "completed",
-              message: "Update downloaded successfully. Applying update...",
-              percent: 100,
-            })
-          );
-
-          log.info("Starting update installer for", platform, "...", installerPath);
-
-          try {
-            if (platform === "win32") {
-              log.info("Launching Windows MSI installer with relaunch.");
-              const installerCommand =
-                `"msiexec.exe" /i "${installerPath}" /passive REBOOT=ReallySuppress ` +
-                `&& timeout /t 2 /nobreak >nul ` +
-                `&& start "" "${process.execPath}"`;
-
-              const child = spawn("cmd.exe", ["/d", "/s", "/c", installerCommand], {
-                detached: true,
-                stdio: "ignore",
-                windowsHide: true,
-              });
-              child.unref();
-            } else if (platform === "darwin") {
-              log.info("Opening macOS DMG installer");
-              exec(`open "${installerPath}"`);
-            } else if (platform === "linux") {
-              log.info("Installing .deb package");
-              try {
-                const command = `dpkg -i "${installerPath}"`;
-                sudo.exec(command, { name: "Kloow" }, (error, stdout) => {
-                  if (error) {
-                    log.error("Install failed:", error);
-                    return;
-                  }
-                  log.info("Install output:", stdout);
-                });
-                log.info("Installation complete");
-              } catch (err) {
-                log.error("Failed to install deb:", err);
-              }
-            }
-
-            setTimeout(() => {
-              log.info("Quitting app to apply update");
-              app.isQuitting = true;
-              app.quit();
-            }, 1500);
-          } catch (installError) {
-            log.error("Error launching installer:", installError);
-            state.isDownloading = false;
-            windows.forEach((win) =>
-              win.webContents.send("update-download-status", {
-                status: "error",
-                message: "Couldn't start the installer.",
-              })
-            );
-          }
-        },
-        onError: (error) => {
-          state.isDownloading = false;
-          log.error("Download error:", error.message);
-          windows.forEach((win) =>
-            win.webContents.send("update-download-status", {
-              status: "error",
-              message: "Download failed. Please try again.",
-            })
-          );
-        },
+      emitUpdateDownloadStatus({
+        status: "downloading",
+        message: "Checking for updates...",
+        percent: 0,
       });
+
+      const updateCheckResult = await autoUpdater.checkForUpdates();
+      if (!updateCheckResult?.updateInfo?.version) {
+        emitUpdateDownloadStatus({
+          status: "idle",
+          message: "No update available.",
+          percent: 0,
+        });
+        return { status: false, message: "No update available." };
+      }
+
+      await autoUpdater.downloadUpdate();
+      return { status: true, message: "Update downloaded successfully." };
     } catch (e) {
-      state.isDownloading = false;
-      log.error("Error downloading update:", e);
-      broadcast("update-download-status", {
+      log.error("Error starting update download:", e);
+      emitUpdateDownloadStatus({
         status: "error",
         message: e.message,
       });
+      return { status: false, message: e.message };
     }
+  }
+
+  function schedulePeriodicChecks() {
+    if (updateCheckInterval) {
+      clearInterval(updateCheckInterval);
+    }
+
+    updateCheckInterval = setInterval(() => {
+      try {
+        autoUpdater.checkForUpdates();
+      } catch (error) {
+        log.error("Scheduled update check failed:", error);
+      }
+    }, 10 * 60 * 1000);
   }
 
   function registerHandlers(ipcMain) {
     ipcMain.on("check-for-updates", () => {
-      if (process.argv.includes("--squirrel-firstrun")) {
-        log.info("First run after install, skipping update check.");
+      setupAutoUpdater();
+
+      if (!app.isPackaged) {
         broadcast("update-status", {
           status: "check-for-updates",
-          message: "No updates checked on first run.",
+          message: "Auto-update is disabled in development mode.",
         });
         return;
       }
-      autoUpdater.checkForUpdates();
-      setInterval(() => autoUpdater.checkForUpdates(), 10 * 60 * 1000);
+
+      try {
+        autoUpdater.checkForUpdates();
+        schedulePeriodicChecks();
+      } catch (error) {
+        log.error("Error checking for updates:", error);
+        broadcast("update-status", {
+          status: "error",
+          message: error.message,
+        });
+      }
     });
 
     ipcMain.on("restart-and-update", () => {

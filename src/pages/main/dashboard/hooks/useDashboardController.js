@@ -84,7 +84,6 @@ export default function useDashboardController() {
 
   const [update, setUpdate] = useState(false);
   const [latestVersion, setLatestVersion] = useState(null);
-  const [downloadUrl, setDownloadUrl] = useState(null);
   const [updateDownloading, setUpdateDownloading] = useState(false);
   const [updateDownloadProgress, setUpdateDownloadProgress] = useState(0);
   const [updateDownloadStatus, setUpdateDownloadStatus] = useState("");
@@ -233,7 +232,6 @@ export default function useDashboardController() {
         if (result.updateAvailable) {
           setUpdate(true);
           setLatestVersion(result.latestVersion);
-          setDownloadUrl(result.downloadUrl);
 
           if (!updateNotificationShown) {
             setShowUpdateDialog(true);
@@ -243,7 +241,6 @@ export default function useDashboardController() {
         } else {
           setUpdate(false);
           setLatestVersion(null);
-          setDownloadUrl(null);
         }
       } catch (error) {
         console.error("Error checking for updates - front:", error);
@@ -253,7 +250,7 @@ export default function useDashboardController() {
   }, []);
 
   useEffect(() => {
-    const handleUpdateDownloadStatus = (data = {}) => {
+    const handleUpdateDownloadStatus = (_, data = {}) => {
       setUpdateDownloading(data.status === "downloading");
       setUpdateDownloadProgress(data.percent || 0);
       setUpdateDownloadStatus(data.message || "");
@@ -285,18 +282,18 @@ export default function useDashboardController() {
   }, [selectedTab]);
 
   const downloadAndUpdate = useCallback(async () => {
-    if (!update || !downloadUrl) return;
+    if (!update) return;
 
     try {
       setIsUpdateDownloading(true);
-      await window.electronAPI.downloadAndUpdate(downloadUrl);
+      await window.electronAPI.downloadAndUpdate();
       successMessage(`Update to version ${latestVersion} started downloading`);
     } catch {
       errorMessage("Update failed. Please try again.");
     } finally {
       setIsUpdateDownloading(false);
     }
-  }, [downloadUrl, errorMessage, latestVersion, successMessage, update]);
+  }, [errorMessage, latestVersion, successMessage, update]);
 
   const handleDownloadFromDialog = useCallback(async () => {
     await downloadAndUpdate();

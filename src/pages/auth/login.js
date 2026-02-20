@@ -60,11 +60,20 @@ const Login = () => {
     window.electronAPI.setTitle("Login");
   }, []);
 
-  const handleInstallCert = () => {
-    window.electronAPI.installCert().then((result) => {
-      setOpenCert(false);
-      if (!result.status) errorMessage(result.message);
-    });
+  const handleInstallCert = async () => {
+    const result = await window.electronAPI.installCert();
+    if (!result.status) {
+      errorMessage(result.message);
+      return;
+    }
+
+    const installed = await window.electronAPI.checkCert();
+    if (!installed) {
+      errorMessage("Certificate installation is not detected yet. Please try again.");
+      return;
+    }
+
+    setOpenCert(false);
   };
 
   const handleMarkTrusted = () => {

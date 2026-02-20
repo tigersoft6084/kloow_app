@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { app, BrowserWindow, autoUpdater, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const log = require("electron-log");
 const packageJson = require("../package.json");
 
@@ -18,18 +18,12 @@ const { createUpdatesService } = require("./main/updates");
 
 const sanitizedAppName = sanitizeAppName(packageJson.productName);
 app.setAppUserModelId(`com.${sanitizedAppName}.app`);
-autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = "info";
-
-if (require("electron-squirrel-startup")) {
-  app.quit();
-}
 
 const platformConfig = getPlatformConfig(app);
 const settingsService = createSettingsService(app);
 const credentialsService = createCredentialsService(app);
 const browserService = createBrowserService({ platformConfig, state, log });
-const updatesService = createUpdatesService({ app, autoUpdater, state, log });
+const updatesService = createUpdatesService({ app, log });
 const screamingFrogService = createScreamingFrogService({ app, state });
 
 function getWindowEntries() {

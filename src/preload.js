@@ -32,5 +32,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
   licenseSFLA: () => ipcRenderer.invoke("license-sfla"),
 
   checkUpdate: (remote) => ipcRenderer.invoke("check-update", remote),
-  downloadAndUpdate: (downloadUrl) => ipcRenderer.invoke("download-and-update", downloadUrl),
+  downloadAndUpdate: () => ipcRenderer.invoke("download-and-update"),
 });

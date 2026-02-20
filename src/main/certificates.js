@@ -3,6 +3,59 @@ const path = require("path");
 const { execSync } = require("child_process");
 const sudo = require("sudo-prompt");
 
+const WINDOWS_CERT_THUMBPRINT = "75358677431CEBDF2A7F3B23DD765305F7037A1D";
+
+function normalizeHex(value = "") {
+  return value.replace(/[^a-fA-F0-9]/g, "").toUpperCase();
+}
+
+function hasWindowsCertInRootStore(userScope = false) {
+  const userFlag = userScope ? "-user " : "";
+  const output = execSync(`certutil ${userFlag}-store Root`, {
+    encoding: "utf8",
+    stdio: "pipe",
+  });
+
+  return normalizeHex(output).includes(WINDOWS_CERT_THUMBPRINT);
+}
+
+async function resolveWindowsCertPath() {
+  const candidates = [];
+
+  if (process.resourcesPath) {
+    candidates.push(path.join(process.resourcesPath, "cert.crt"));
+  }
+  candidates.push(path.join(__dirname, "..", "..", "..", "cert.crt"));
+  candidates.push(path.join(process.cwd(), "cert.crt"));
+
+  for (const certPath of candidates) {
+    try {
+      await fs.access(certPath);
+      return certPath;
+    } catch (error) {
+      // Try next candidate.
+    }
+  }
+
+  throw new Error("cert.crt not found in expected locations.");
+}
+
+function installWindowsCertToMachineStore(certPath) {
+  return new Promise((resolve, reject) => {
+    sudo.exec(
+      `certutil -addstore -f "Root" "${certPath}"`,
+      { name: "Kloow" },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(stdout || stderr || "");
+      }
+    );
+  });
+}
+
 function registerCertificateHandlers(ipcMain) {
   ipcMain.handle("check-cert", () => {
     if (process.platform === "linux") {
@@ -33,14 +86,15 @@ function registerCertificateHandlers(ipcMain) {
       }
     } else {
       try {
-        const output = execSync(
-          "certutil -store Root 75358677431cebdf2a7f3b23dd765305f7037a1d",
-          {
-            encoding: "utf8",
-            stdio: "pipe",
-          }
-        );
-        return output.includes("75358677431cebdf2a7f3b23dd765305f7037a1d");
+        if (hasWindowsCertInRootStore(false)) {
+          return true;
+        }
+      } catch (error) {
+        // Fall through to user store check.
+      }
+
+      try {
+        return hasWindowsCertInRootStore(true);
       } catch (error) {
         return false;
       }
@@ -114,16 +168,15 @@ function registerCertificateHandlers(ipcMain) {
         return { status: true, message: error.message };
       }
     } else {
-      const certutilCommand = path.join(__dirname, "..", "..", "..", "run.bat");
       try {
-        await fs.access(certutilCommand);
-        const output = execSync(`"${certutilCommand}"`, {
-          encoding: "utf8",
-          stdio: "pipe",
-        });
-        return { status: true, message: output };
-      } catch (error) {
-        return { status: false, message: error.message };
+        const certPath = await resolveWindowsCertPath();
+        const machineOutput = await installWindowsCertToMachineStore(certPath);
+        return { status: true, message: machineOutput };
+      } catch (machineError) {
+        return {
+          status: false,
+          message: `Machine store install failed: ${machineError.message}`,
+        };
       }
     }
   });

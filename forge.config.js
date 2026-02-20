@@ -1,10 +1,9 @@
 require("dotenv").config();
 const { FusesPlugin } = require("@electron-forge/plugin-fuses");
 const { FuseV1Options, FuseVersion } = require("@electron/fuses");
-const path = require("path");
 const packageJson = require("./package.json");
 
-// Sanitize productName for NuGet package ID and executable name
+// Sanitize productName for executable and bundle identifiers
 const sanitizedAppName = packageJson.productName
   .replace(/\s+/g, "")
   .toLowerCase();
@@ -42,22 +41,6 @@ module.exports = {
   },
   rebuildConfig: {},
   makers: [
-    {
-      name: "@electron-forge/maker-squirrel",
-      config: {
-        name: sanitizedAppName,
-        iconUrl:
-          "file:///" +
-          path
-            .resolve(__dirname, "./src/assets/images/logo.ico")
-            .replace(/\\/g, "/"),
-        setupIcon: path.resolve(__dirname, "./src/assets/images/logo.ico"),
-        skipUpdateIcon: true,
-        // Optional: Code signing
-        // certificateFile: "./cert.pfx",
-        // certificatePassword: process.env.CERTIFICATE_PASSWORD
-      },
-    },
     {
       name: "@electron-forge/maker-dmg",
       config: {
