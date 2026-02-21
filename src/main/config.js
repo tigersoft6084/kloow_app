@@ -49,41 +49,22 @@ const DNR_MANIFEST_TEMPLATE = {
   },
 };
 
-const DNR_RULES_TEMPLATE = [
-  {
-    id: 1,
-    priority: 1,
-    action: {
-      type: "modifyHeaders",
-      requestHeaders: [
-        {
-          header: "Seocromom-Authorization",
-          operation: "set",
-          value: "",
-        },
-      ],
-    },
-    condition: {
-      urlFilter: "*",
-      resourceTypes: [
-        "main_frame",
-        "sub_frame",
-        "stylesheet",
-        "script",
-        "image",
-        "font",
-        "object",
-        "xmlhttprequest",
-        "ping",
-        "csp_report",
-        "media",
-        "websocket",
-        "webtransport",
-        "webbundle",
-        "other",
-      ],
-    },
-  },
+const DNR_RESOURCE_TYPES = [
+  "main_frame",
+  "sub_frame",
+  "stylesheet",
+  "script",
+  "image",
+  "font",
+  "object",
+  "xmlhttprequest",
+  "ping",
+  "csp_report",
+  "media",
+  "websocket",
+  "webtransport",
+  "webbundle",
+  "other",
 ];
 
 const BROWSER_GUARD_MANIFEST_TEMPLATE = {
@@ -235,9 +216,30 @@ function buildDnrManifest() {
 }
 
 function buildDnrRules(authToken) {
-  const rules = JSON.parse(JSON.stringify(DNR_RULES_TEMPLATE));
-  rules[0].action.requestHeaders[0].value = authToken || "";
-  return rules;
+  const normalizedToken = authToken || "";
+  return DNR_RESOURCE_TYPES.map((resourceType, index) => ({
+    id: index + 1,
+    priority: 1,
+    action: {
+      type: "modifyHeaders",
+      requestHeaders: [
+        {
+          header: "Seocromom-Authorization",
+          operation: "set",
+          value: normalizedToken,
+        },
+        {
+          header: "Seocromom-Request-Type",
+          operation: "set",
+          value: resourceType,
+        },
+      ],
+    },
+    condition: {
+      urlFilter: "*",
+      resourceTypes: [resourceType],
+    },
+  }));
 }
 
 function buildBrowserGuardManifest() {
